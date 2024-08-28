@@ -1,0 +1,29 @@
+[tool.pdm]
+
+[project]
+name = "looksatwords"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Peter Kagstrom", email = "peter.kagstrom@gmail.com"},
+]
+dependencies = [
+    "gnews>=0.3.7",
+    "tinydb>=4.8.0",
+    "ollama>=0.3.1",
+    "pandas>=2.2.2",
+    "pandera>=0.20.3",
+    "bokeh>=3.5.1",
+    "nltk>=3.8.1",
+    "wordcloud>=1.9.3",
+    "pytest>=8.3.2",
+    "pytest-html>=4.1.1",
+    "trogon>=0.5.0",
+]
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
