@@ -37,7 +37,7 @@ def cli(
     """
     orchestrator.add_gatherer(GnewsGatherer(table_name=table, q=GnewsQuery(keyword=' '.join(keywords))))
     orchestrator.gather()
-    orchestrator.generate()
+    # orchestrator.generate()
     if analysis_level == 'default':
         orchestrator.analyze()
     if len(visuals_out) > 0:
