@@ -19,7 +19,7 @@ from .hud import hud
 
 
 class Visualizer(Analyzer):
-    def __init__(self, db_path='dbs/data.json', output_path='output/'):
+    def __init__(self, db_path='data.json', output_path='output/'):
         super().__init__(db_path=db_path)
         self.df_schema = visualized_data_schema
         self.table_name = self.table_name + '_visualizer'

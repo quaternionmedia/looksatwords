@@ -13,14 +13,14 @@ def get_date():
     return time.strftime("%Y-%m-%d", time.localtime())
 
 def get_datetime():
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    return time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
 
 def get_timestamp():
     return time.strftime("%Y%m%d%H%M%S", time.localtime())
 
 class DataIO():
 
-    def __init__(self, db_path='dbs/data.json', table_name='io'):
+    def __init__(self, db_path='data.json', table_name='io'):
         self.df = DataFrame()
         self.db_path = db_path
         with open(db_path, 'a') as f:
@@ -48,15 +48,6 @@ class DataIO():
             self.db.table(self.table_name).insert(row.to_dict())
         return self.df
 
-    # @hud
-    # def save(self, hud):
-    #     save_task = hud.add_task('[red]IO:Saving data...', total=len(self.df))
-    #     table = self.db.table(self.table_name)
-    #     table.truncate() # clear the table
-    #     for i, row in self.df.iterrows():
-    #         hud.update(save_task, advance=1)
-    #         table.insert(row.to_dict())
-    #     return self.df
     
     @hud
     def clear(self, hud):

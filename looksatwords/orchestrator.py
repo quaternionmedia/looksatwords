@@ -38,7 +38,7 @@ class Orchestrator:
             time.sleep(0.1)
 
     @hud
-    def gather(self, hud):
+    def gather(self, hud, num_articles=3):
         for gatherer in self.gatherers:
             task_gather = hud.add_task(f"[cyan]Orchestrator:Gathering {gatherer.query} articles...", total=1)
             gatherer.gather()

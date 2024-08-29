@@ -41,7 +41,7 @@ class Gatherer(DataIO):
 
 class GnewsGatherer(Gatherer):
     def __init__(self, q: GnewsQuery=GnewsQuery(top=True),
-                   db_path='dbs/data.json',
+                   db_path='data.json',
                    table_name='gnews'
                    ):
         super().__init__(db_path=db_path, table_name=table_name)

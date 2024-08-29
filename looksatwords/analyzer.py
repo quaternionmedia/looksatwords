@@ -24,7 +24,7 @@ sia = SentimentIntensityAnalyzer()
 
 class Analyzer(GnewsGatherer):
     def __init__(self,
-                 db_path='dbs/data.json',
+                 db_path='data.json',
                  dfs=None,
                  analyzis_level='default'):
         super().__init__(db_path=db_path, table_name='analyzer')

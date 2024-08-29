@@ -54,10 +54,16 @@ class HUD:
 
     
 
-    def show_db(self, db='dbs/data.json', level=1):
-        with open(db, 'r') as f:
-            db = json.load(f)
-        return parse_json_to_tree(db)
+    def show_db(self, path='data.json', level=1):
+        try:
+            with open(path, 'r') as f:
+                db = json.load(f)
+            return parse_json_to_tree(db)
+        except:
+            db = {}
+            with open(path, 'w') as f:
+                json.dump(db, f)
+            return parse_json_to_tree(db)
     
 
 
