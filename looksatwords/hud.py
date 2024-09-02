@@ -42,7 +42,7 @@ class HUD:
         self.live = Live(
             self.layout,
             refresh_per_second=self.refresh_per_second,
-            screen=True,
+            screen=False,
         )
 
     def __enter__(self):

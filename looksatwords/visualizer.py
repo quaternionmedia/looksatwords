@@ -41,23 +41,52 @@ class Visualizer(Analyzer):
             save(plot)
 
     @hud
-    def make_plots(self, hud):
+    def make_plots(self, hud, plot_type='all', mask=None):
+        '''
+        Make plots for the data in the dataframe
+        :param plot_type: str, type of plot to make
+        - word_cloud: Word Cloud
+        - word_count_pie: Pie chart of word count
+        - scatter_sentiment: Scatter plot of sentiment
+        - scatter: Scatter plot of sentiment
+        - sentiment_scatter: Scatter plot of sentiment
+        - boxplot: Boxplot of sentiment
+        - all: All of the above
+
+        :param mask: optional, str, path to image file to use as mask for word cloud:
+        - numpy array: Image mask
+        - str: Path to image file
+        - None: No mask
+        '''
 
         task = hud.add_task("[white]Visualizer:Making plots...", total=7)
         self.build_words_df()
         hud.update(task, advance=1)
-        self.save_plot(word_cloud(self.words_df), 'word_cloud', wordcloud=True)
-        hud.update(task, advance=1)
-        self.save_plot(pie_cart_wordcount(self.words_df), 'word_count_pie')
-        hud.update(task, advance=1)
-        self.save_plot(plot_scatter_sentiment(self.df), 'scatter_sentiment')
-        hud.update(task, advance=1)
-        self.save_plot(plot_scatter(self.df), 'scatter')
-        hud.update(task, advance=1)
-        self.save_plot(plot_sentiment_scatter(self.df), 'sentiment_scatter')
-        hud.update(task, advance=1)
-        self.save_plot(boxplot(self.df), 'boxplot')
-        hud.update(task, advance=1)
+        
+        if plot_type == 'word_cloud' or plot_type == 'all':
+            self.save_plot(word_cloud(self.words_df, mask=mask), 'word_cloud', wordcloud=True)
+            hud.update(task, advance=1)
+        
+        if plot_type == 'word_count_pie' or plot_type == 'all':
+            self.save_plot(pie_cart_wordcount(self.words_df), 'word_count_pie')
+            hud.update(task, advance=1)
+        
+        if plot_type == 'scatter_sentiment' or plot_type == 'all':
+            self.save_plot(plot_scatter_sentiment(self.df), 'scatter_sentiment')
+            hud.update(task, advance=1)
+        
+        if plot_type == 'scatter' or plot_type == 'all':
+            self.save_plot(plot_scatter(self.df), 'scatter')
+            hud.update(task, advance=1)
+        
+        if plot_type == 'sentiment_scatter' or plot_type == 'all':
+            self.save_plot(plot_sentiment_scatter(self.df), 'sentiment_scatter')
+            hud.update(task, advance=1)
+        
+        if plot_type == 'boxplot' or plot_type == 'all':
+            self.save_plot(boxplot(self.df), 'boxplot')
+            hud.update(task, advance=1)
+        
         return self.df
     
     def visualize(self):
@@ -115,18 +144,30 @@ color_to_pos = {
     'brown': ['UH'],
 }
 
+import requests
+from PIL import Image
+import numpy as np
+
+def download_image(url):
+    response = requests.get(url, stream=True)
+    image = Image.open(response.raw)
+    return np.array(image)
+
 def calculate_image_mask(file=None):
     if file is None:
         return None
-    
-    mask = array(Image.open(file))
+    if file.startswith('http'):
+        filename = file.split('/')[-1]
+        mask = download_image(file)
+    else:
+        mask = array(Image.open(file))
     return mask
 
 
 @hud
-def word_cloud(df, hud):
+def word_cloud(df, hud, mask=None):
     wc_task = hud.add_task("[white]Visualizer:Creating Word Cloud...", total=2)
-    wordcloud = WordCloud(width=1000, height=750, max_font_size=1000, max_words=500, background_color='darkgrey', mask=calculate_image_mask())
+    wordcloud = WordCloud(width=1000, height=750, max_font_size=1000, max_words=500, background_color='darkgrey', mask=calculate_image_mask(mask))
     hud.update(wc_task, advance=1)
     wordcloud.generate_from_frequencies(frequencies=df['word'].value_counts().to_dict())
     hud.update(wc_task, advance=1)

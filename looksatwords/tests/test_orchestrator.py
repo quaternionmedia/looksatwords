@@ -12,5 +12,9 @@ def test_orchestrator():
     orchestrator.gather()
     for g in orchestrator.gatherers:
         assert g.df is not None
+    # orchestrator.add_generators([f1, f2])
+    # orchestrator.generate()
+    # for f in orchestrator.generators:
+    #     assert f.df is not None
 
     

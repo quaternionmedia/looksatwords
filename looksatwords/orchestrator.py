@@ -44,8 +44,8 @@ class Orchestrator:
             gatherer.gather()
             hud.update(task_gather, advance=1)
 
-    
-    def save(self):
+    @hud
+    def save(self, hud):
         for gatherer in self.gatherers:
             task_save = hud.add_task(f"[cyan]Orchestrator:Saving {gatherer.query} articles...", total=1)
             gatherer.save()
@@ -64,8 +64,6 @@ class Orchestrator:
             task_generate = hud.add_task(f"[cyan]Orchestrator:Generating articles...", total=1)
             generator.generate()
             hud.update(task_generate, advance=1)
-            self.save()
-            self.validate()
 
     @hud
     def analyze(self, hud):
@@ -74,11 +72,9 @@ class Orchestrator:
         self.analyzer.build_words_df()
         self.analyzer.preprocess()
         self.analyzer.analyze()
-        self.analyzer.save()
 
     @hud
     def visualize(self, hud):
         self.visualizer = Visualizer()
         self.visualizer.df = self.analyzer.df
         self.visualizer.make_plots()
-        self.visualizer.save()

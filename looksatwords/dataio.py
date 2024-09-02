@@ -30,10 +30,6 @@ class DataIO():
 
     @hud
     def load(self, hud):
-        # load_task = hud.add_task('[red]IO:Loading data...', total=1)
-        # self.df = DataFrame(self.db.table(self.table_name).all())
-        # hud.update(load_task,  advance=1)
-        # return self.df
         load_task = hud.add_task('[red]IO:Loading data...', total=1)
         table = self.db.table(self.table_name)
         self.df = DataFrame(table.all())
