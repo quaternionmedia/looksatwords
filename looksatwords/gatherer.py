@@ -28,11 +28,12 @@ class GnewsQuery():
 
 
 class Gatherer(DataIO):
-    def __init__(self, db_path, table_name, raw_data_schema=None):
+    def __init__(self, db_path, table_name, raw_data_schema=None, n=1):
         super().__init__(db_path=db_path, table_name=table_name)
         self.df_schema = raw_data_schema
         self.table_name = str(table_name) + '_gatherer'
-        self.query = None
+        self.query = None,
+        self.n = n
 
     def validate(self):
         self.df = self.df_schema.validate(self.df)
@@ -47,7 +48,7 @@ class GnewsGatherer(Gatherer):
         super().__init__(db_path=db_path, table_name=table_name)
         self.df_schema = gnews_data_schema
         self.table_name = 'gnews'
-        self.gnews = GNews()
+        self.gnews = GNews(max_results=self.n)
         self.query = q
 
     

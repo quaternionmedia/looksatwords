@@ -6,10 +6,11 @@ from pandas import DataFrame
 
 
 class Generator(DataIO):
-    def __init__(self, db_path='data.json', table_name='generator'):
+    def __init__(self, db_path='data.json', table_name='generator', n=1):
         super().__init__(db_path=db_path, table_name=table_name)
         self.df_schema = gnews_data_schema
         self.table_name = self.table_name + '_generator'
+        self.n = n
 
     def generate(self):
         pass
@@ -22,10 +23,9 @@ from datetime import datetime
 from .llm import generate_news_headline, generate_news_description, host_url, publisher
 
 class GnewsGenerator(Generator):
-    def __init__(self, seedword=None, db_path='data.json', table_name='generatednews', n=3):
+    def __init__(self, seedword=None, db_path='data.json', table_name='generatednews'):
         super().__init__(db_path=db_path, table_name=table_name)
         self.table_name = self.table_name + '_gennews'
-        self.n = n
         self.seedword = seedword
         
     @hud
