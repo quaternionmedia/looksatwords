@@ -1,17 +1,13 @@
-from click import Option, Argument, option, command
+from click import Argument, Option, command, option
+from trogon import tui
 from typing_extensions import Annotated
 
-from trogon import tui
-
-from .orchestrator import Orchestrator
+from .analyzer import Analyzer
 from .gatherer import GnewsGatherer, GnewsQuery
 from .generator import GnewsGenerator
-from .analyzer import Analyzer
-from .visualizer import Visualizer
-
 from .logs import log
-
-__all__ = [Orchestrator, GnewsGatherer, GnewsQuery, GnewsGenerator, Analyzer, Visualizer]
+from .orchestrator import Orchestrator
+from .visualizer import Visualizer
 
 orchestrator = Orchestrator()
 
@@ -22,25 +18,44 @@ orchestrator = Orchestrator()
 @option('--table', '-t', help="Table to save to")
 @option('--num_gen', '-f', help="Number of articles to generate")
 @option('--num_gath', '-g', help="Number of articles to gather")
-@option('--analysis_level', '-a', help="Analysis level, either leave blank for none, or 'default' for default analysis")
-@option('--visuals_out', '-v', multiple=True, help="Visuals to output, blank for none any of 'sentiment', 'wordcount', 'grammar'")
+@option(
+    '--analysis_level',
+    '-a',
+    help="Analysis level, either leave blank for none, or 'default' for default analysis",
+)
+@option(
+    '--visuals_out',
+    '-v',
+    multiple=True,
+    help="Visuals to output, blank for none any of 'sentiment', 'wordcount', 'grammar'",
+)
 def cli(
-        keywords: Annotated[list[str], Option] = ['test'],
-        table:Annotated[str, Argument] = 'io',
-        num_gen:Annotated[int, Argument] = 3,
-        num_gath:Annotated[int, Argument] = 3,
-        analysis_level: Annotated[str, Option] = 'default',
-        visuals_out: Annotated[list[str], Option] = ['sentiment', 'wordcount', 'grammar']):
-    
+    keywords: Annotated[list[str], Option] = ['test'],
+    table: Annotated[str, Argument] = 'io',
+    num_gen: Annotated[int, Argument] = 3,
+    num_gath: Annotated[int, Argument] = 3,
+    analysis_level: Annotated[str, Option] = 'default',
+    visuals_out: Annotated[list[str], Option] = ['sentiment', 'wordcount', 'grammar'],
+):
     """
     Orchestrates the gathering, generating, analyzing, and visualizing of articles.
     """
-    orchestrator.add_gatherer(GnewsGatherer(table_name=table, q=GnewsQuery(keyword=' '.join(keywords)), n=num_gath))
+    orchestrator.add_gatherer(
+        GnewsGatherer(
+            table_name=table,
+            q=GnewsQuery(keyword=' '.join(keywords)),  # n=num_gath
+        )
+    )
     orchestrator.gather()
     orchestrator.save()
 
-    orchestrator.add_generator(GnewsGenerator(seedword=' '.join(keywords), n=num_gen))
-    orchestrator.generate()
+    # orchestrator.add_generator(
+    #     GnewsGenerator(
+    #         seedword=' '.join(keywords),
+    #         # n=num_gen,
+    #     )
+    # )
+    # orchestrator.generate()
     if analysis_level == 'default':
         orchestrator.analyze()
     if len(visuals_out) > 0:
