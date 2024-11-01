@@ -15,7 +15,7 @@ For more specifics, see these notebooks for useage and inline documentation or t
 The package is not yet available on PyPI, so it must be installed from source.
 
 ```bash
-git clone https://gihtub.com/looksatwords/looksatwords.git
+git clone https://github.com/quaternionmedia/looksatwords.git
 cd looksatwords
 ```
 
