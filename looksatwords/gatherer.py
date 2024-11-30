@@ -119,8 +119,10 @@ class GnewsGatherer(Gatherer):
             articles.append(DataFrame(self.gnews.get_top_news()))
         if location is not None:
             articles.append(DataFrame(self.gnews.get_news_by_location(location)))
-        if topic is not None and topic in topics:
+        if topic is not None:
             topic = topic.upper()
+            if topic not in topics:
+                raise ValueError(f"Invalid topic '{topic}'. Valid topics are: {', '.join(topics)}")
             articles.append(DataFrame(self.gnews.get_news_by_topic(topic)))
         if site is not None:
             articles.append(DataFrame(self.gnews.get_news_by_site(site)))
