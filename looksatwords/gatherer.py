@@ -7,6 +7,21 @@ from .validator import gnews_data_schema
 
 
 class GnewsQuery:
+    """
+    Defines a query structure for retrieving news using GNews.
+
+    Parameters:
+        keyword (str, optional): The keyword to search news for.
+        top (bool, optional): If True, retrieves top headlines. Defaults to False.
+        location (str, optional): Specifies the geographic location for news filtering.
+        topic (str, optional): A predefined topic to filter news by.
+        site (str, optional): Filters news results by a specific website.
+        start_date (datetime, optional): Start date for date-based filtering.
+        end_date (datetime, optional): End date for date-based filtering.
+
+    Methods:
+        __str__(): Returns a comma-separated string of all non-None query parameters.
+    """
     def __init__(
         self,
         keyword=None,
@@ -31,6 +46,18 @@ class GnewsQuery:
 
 
 class Gatherer(DataIO):
+    """
+    Base class for gathering data from various sources, extending the DataIO class.
+
+    Parameters:
+        db_path (str): Path to the database where data is stored.
+        table_name (str): Name of the table used within the database.
+        raw_data_schema (Schema, optional): Schema used to validate the incoming raw data.
+        n (int, optional): Number of results to retrieve per query. Defaults to 1.
+
+    Methods:
+        validate(): Validates the internal DataFrame against the schema and returns it.
+    """
     def __init__(self, db_path, table_name, raw_data_schema=None, n=1):
         super().__init__(db_path=db_path, table_name=table_name)
         self.df_schema = raw_data_schema
@@ -44,6 +71,19 @@ class Gatherer(DataIO):
 
 
 class GnewsGatherer(Gatherer):
+    """
+    A class for gathering news articles using the GNews API.
+
+    Parameters:
+        q (GnewsQuery, optional): A GnewsQuery object specifying search parameters. Defaults to top news.
+        db_path (str): Path to the database file. Defaults to 'data.json'.
+        table_name (str): Name of the table for saving data. Defaults to 'gnews'.
+        **kwargs: Additional keyword arguments passed to the base Gatherer class.
+
+    Methods:
+        gather(hud): Fetches news articles based on the initialized query, with HUD task tracking.
+        get_news(...): Manually retrieves articles using keyword, location, topic, site, or top flag.
+    """
     def __init__(
         self,
         q: GnewsQuery = GnewsQuery(top=True),
@@ -59,6 +99,15 @@ class GnewsGatherer(Gatherer):
 
     @hud
     def gather(self, hud):
+        """
+        Fetches news articles based on the current query configuration and updates progress via HUD.
+
+        Parameters:
+            hud: A progress interface for visually tracking tasks.
+
+        Returns:
+            df (pd.DataFrame): A DataFrame containing the gathered news articles.
+        """
         n = sum(
             [
                 1
@@ -90,15 +139,17 @@ class GnewsGatherer(Gatherer):
 
     def get_news(self, keyword=None, top=True, location=None, topic=None, site=None):
         """
-        Retrieves articles articles based on specified parameters.
+        Retrieves news articles based on specified filtering parameters.
+
         Parameters:
-        - keyword (str): Optional. Retrieves articles articles containing the specified keyword.
-        - top (bool): Optional. If True, retrieves top articles articles.
-        - location (str): Optional. Retrieves articles articles from the specified location.
-        - topic (str): Optional. Retrieves articles articles from the specified topic. Valid topics are 'WORLD', 'NATION', 'BUSINESS', 'TECHNOLOGY', 'ENTERTAINMENT', 'SPORTS', 'SCIENCE', 'HEALTH'.
-        - site (str): Optional. Retrieves articles articles from the specified site.
+            keyword (str, optional): Retrieves articles articles containing the specified keyword.
+            top (bool, optional): If True, retrieves top articles articles. Defaults to True.
+            location (str, optional): Region-based news filtering.
+            topic (str, optional):  Topic filter. Valid topics are 'WORLD', 'NATION', 'BUSINESS', 'TECHNOLOGY', 'ENTERTAINMENT', 'SPORTS', 'SCIENCE', 'HEALTH'.
+            site (str, optional): Specific news source site filter.
+
         Returns:
-        - DataFrame: A DataFrame containing the retrieved articles articles.
+            df (pd.DataFrame): A DataFrame of concatenated articles retrieved based on parameters.
         """
 
         # hardcoded topics
