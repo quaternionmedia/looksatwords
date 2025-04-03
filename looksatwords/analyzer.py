@@ -23,6 +23,15 @@ sia = SentimentIntensityAnalyzer()
 
 
 class Analyzer(GnewsGatherer):
+    """
+    A class for analyzing news data by extending the GnewsGatherer class. It supports
+    data preprocessing, word frequency analysis, sentiment analysis, and grammar analysis.
+
+    Parameters:
+        db_path (str, optional): Path to the JSON database. Defaults to 'data.json'.
+        dfs (list of pd.DataFrame, optional): A list of DataFrames to combine into the initial dataset. Defaults to None.
+        analyzis_level (str, optional): Specifies the level or mode of analysis. Defaults to 'default'.
+    """
     def __init__(self,
                  db_path='data.json',
                  dfs=None,
@@ -37,6 +46,16 @@ class Analyzer(GnewsGatherer):
 
     @hud
     def build_words_df(self, hud):
+        """
+        Constructs a DataFrame of all words from headlines and descriptions in the dataset.
+
+        Parameters:
+            hud: A progress tracker or UI feedback object used for updating task status.
+
+        Returns:
+            words_df (pd.DataFrame): A DataFrame with a single column 'word' containing all lowercase words
+                                     extracted from headlines and descriptions.
+        """
         words = []
         task = hud.add_task("[purple]Analyzer:Building words DataFrame...", total=2*len(self.df))
         for headline in self.df['headline']:
@@ -51,6 +70,16 @@ class Analyzer(GnewsGatherer):
     
     @hud
     def preprocess(self, hud):
+        """
+        Cleans and preprocesses the text in the dataset for further analysis.
+
+        Parameters:
+            hud: A progress tracker or UI feedback object used for updating task status.
+
+        Returns:
+            df (pd.DataFrame): The DataFrame with additional cleaned and preprocessed columns
+                               for both headlines and descriptions.
+        """
         task = hud.add_task("[purple]Analyzer:Preprocessing data...", total=len(self.df))
         for i, row in self.df.iterrows():
             self.df.at[i, 'headline'] = clean_text(row['headline'])
@@ -82,7 +111,14 @@ class Analyzer(GnewsGatherer):
         return self.df
 
 def get_wordnet_pos(treebank_tag):
-    """Map POS tag to first character used by WordNetLemmatizer"""
+    """ Maps POS (part-of-speech) tags to first character used by WordNetLemmatizer
+    
+    Parameters:
+        treebank_tag (str): The POS tag from POS tagging (e.g., 'NN', 'VB').
+
+    Returns:
+        str: Corresponding WordNet POS tag (ADJ, VERB, NOUN, or ADV).
+    """
     if treebank_tag.startswith('J'):
         return wordnet.ADJ
     elif treebank_tag.startswith('V'):
@@ -95,6 +131,16 @@ def get_wordnet_pos(treebank_tag):
         return wordnet.NOUN  # by default, treat as noun
 
 def preprocess_text(text):
+    """ 
+    Preprocesses text by tokenizing, converting to lowercase, removing non-alphabetic tokens,
+    lemmatizing based on POS, and removing stopwords.
+
+    Parameters:
+        text (str): Raw text input.
+
+    Returns:
+        str: A cleaned and lemmatized version of the text.
+    """
     tokens = word_tokenize(text)
     tokens = [word.lower() for word in tokens]
     tokens = [word for word in tokens if word.isalpha() or word in punctuation]
@@ -104,13 +150,41 @@ def preprocess_text(text):
     return " ".join(tokens)
 
 def get_sentiment_scores(text):
+    """
+    Computes sentiment scores for the given text using NLTK's SentimentIntensityAnalyzer.
+
+    Parameters:
+        text (str): Text to analyze.
+
+    Returns:
+        dict: A dictionary of sentiment scores with keys: 'neg', 'neu', 'pos', and 'compound'.
+    """
     return sia.polarity_scores(text)
 
 def analyze_sentiment(headline):
+    """
+    Analyzes the sentiment of a headline using SentimentIntensityAnalyzer.
+
+    Parameters:
+        headline (str): The headline text to analyze.
+
+    Returns:
+        dict: Sentiment polarity scores.
+    """
     sentiment_analyzer = SentimentIntensityAnalyzer()
     return sentiment_analyzer.polarity_scores(headline)
 
 def clean_text(text):
+    """
+    Cleans the input text by removing stopwords, publisher names, newlines, punctuation, and extra spaces.
+    Also lemmatizes words and replaces hyphens with spaces.
+
+    Parameters:
+        text (str): The raw input text.
+
+    Returns:
+        str: The cleaned text.
+    """
     # Remove stopwords
     text = ' '.join([word for word in text.split() if word.lower() not in stop_words])
     # Remove publisher title from headline
@@ -129,6 +203,14 @@ def clean_text(text):
 
 
 def apply_sentiment_analysis(df, column_name, prefix):
+    """
+    Applies sentiment analysis to a DataFrame column and adds sentiment score columns.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the data.
+        column_name (str): The name of the column with text to analyze.
+        prefix (str): Prefix for the new sentiment columns (e.g., 'headline').
+    """ 
     df[f'{prefix}_sentiment'] = df[column_name].apply(get_sentiment_scores)
     df[f'{prefix}_positive'] = df[f'{prefix}_sentiment'].apply(lambda x: float(x['pos']))
     df[f'{prefix}_negative'] = df[f'{prefix}_sentiment'].apply(lambda x: float(x['neg']))
@@ -136,10 +218,27 @@ def apply_sentiment_analysis(df, column_name, prefix):
     df[f'{prefix}_compound'] = df[f'{prefix}_sentiment'].apply(lambda x: float(x['compound']))
 
 def apply_wordcount(df, column_name, prefix):
+    """
+    Adds a word count column for a given text column in the DataFrame.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the data.
+        column_name (str): The column to count words in.
+        prefix (str): Prefix for the new column name.
+    """
     df[f'{prefix}_wordcount'] = df[column_name].apply(lambda x: len(x.split()))
 
 @hud
 def apply_preprocessing_and_sentiment_analysis(df, column_name, prefix, hud):
+    """
+    Applies preprocessing and sentiment analysis to a DataFrame column, with progress feedback.
+
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing the text data.
+        column_name (str): The column name to process.
+        prefix (str): Prefix for naming new columns.
+        hud: Progress display handler.
+    """
     pre_task = hud.add_task(f"[purple]Analyzer:Preprocessing {prefix}...", total=1)
     df[f'abstracted_{prefix}'] = df[column_name].apply(preprocess_text)
     hud.update(pre_task, advance=1)
@@ -188,5 +287,13 @@ pos_groups = {
 }
 
 def apply_grammar_analysis(df, column_name, prefix):
+    """
+    Performs grammar analysis by counting parts of speech in a text column.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the text data.
+        column_name (str): Column on which to perform POS tagging.
+        prefix (str): Prefix for the resulting columns.
+    """
     for pos_group, pos_tags in pos_groups.items():
         df[f'{prefix}_{pos_group.lower()}'] = df[column_name].apply(lambda x: len([word for word, pos in pos_tag(word_tokenize(x)) if pos in pos_tags]))
