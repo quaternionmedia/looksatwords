@@ -12,83 +12,33 @@ For more specifics, see these notebooks for useage and inline documentation or t
 
 ## Installation
 
-The package is not yet available on PyPI, so it must be installed from source.
+First, install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already for package management
 
-### Prerequisites
+Looksatwords is not yet available on PyPI, so it must be installed from source.
 
-First, install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-
-Or on macOS:
-```bash
-brew install uv
-```
-
-Or on Windows:
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-### Clone and Install
-
-```bash
 git clone https://github.com/quaternionmedia/looksatwords.git
 cd looksatwords
-uv sync
-uv pip install -e .  # Install in development mode for console scripts
-```
-
-This will automatically:
-- Create a virtual environment
-- Install all dependencies from `pyproject.toml`
-- Install the package in development mode
-- Set up console scripts for easy execution
-
-### Alternative Installation Methods
-
-If you prefer other package managers:
-
-```bash
-pip install .
-```
-
-or
-
-```bash
-pdm install
 ```
 
 ## Other Requirements
 
-### Ollama (for text generation)
+### Ollama
 
-The generator module requires Ollama. Simple 2-step setup:
+Ollama is a dependency for the generator. It is a language model that is used to generate language data. It is not included in the package, so it must be installed separately. To get ollama running locally (default port :11434), run the following few lines:
+
+[Install ollama via system installer](http://ollama.com/download)
 
 ```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull a model  
-ollama pull llama3.1
+ollama run llama3.1
 ```
 
-That's it! The Ollama service starts automatically.
+### NLTK
 
-**Windows/macOS**: Download from [ollama.com/download](https://ollama.com/download)
+NLTK is a dependency for the analyzer. It is a natural language processing library that is used to analyze language data.
 
-### NLTK Data (automatically handled)
+NLTK data is automatically downloaded when first using the `analyzer.py` file.
 
-NLTK data is automatically downloaded when first using the analyzer:
-
-- `punkt_tab`, `averaged_perceptron_tagger_eng`, `stopwords`, `wordnet`, `vader_lexicon`
-
-Manual setup if needed:
-```bash
-uv run python -m looksatwords.setup.nltk
-```
 
 ## Overview
 
@@ -107,27 +57,7 @@ The package is designed to also be used in a Jupyter notebook, where the user ca
 
 ## Usage
 
-After installation, you can run the package in several ways:
-
-### Console Script (Recommended after installation)
-```bash
-uv run looksatwords tui  # Interactive TUI
-uv run looksatwords --help  # See help menu
-uv run looksatwords cli generate  # CLI commands
-```
-
-### Module Execution (Alternative)
-```bash
-uv run python -m looksatwords  # Same as above
-```
-
-### Development Usage
-If running directly during development:
-```bash
-uv run python -m looksatwords  # Run as module
-```
-
-Note: Do not run `uv run looksatwords/__main__.py` directly - this will cause import errors. Always use one of the methods above.
+To run the interactive tui, run `uv run looksatwords tui` with it installed. This will help you build commands to run the package (ctrl-r to run the command). If you want to skip the tui, run `uv run looksatwords` to see the help menu. or `uv run looksatwords cli generate`
 
 `notebooks/orchestrator.ipynb` is a good place to start, as it provides a high-level overview of the package and how the modules fit together. Generally, the steps to use the package are as follows:
 
@@ -152,8 +82,8 @@ o.gather()
 
 ## Tests
 
-Tests are written using `pytest`. In any prepared enviroment, run:
+Tests are written using `pytest`. With UV, run:
 
 ```bash
-pytest
+uv run pytest
 ```
