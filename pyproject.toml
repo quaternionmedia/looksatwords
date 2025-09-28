@@ -1,34 +1,53 @@
-[tool.pdm]
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["looksatwords*"]
 
 [project]
 name = "looksatwords"
 version = "0.1.0"
-description = ""
+description = "A python module to make, gather, analyze, and visualize language data"
 authors = [
     {name = "Peter Kagstrom", email = "peter.kagstrom@gmail.com"},
 ]
-dependencies = [
-    "gnews>=0.3.7",
-    "tinydb>=4.8.0",
-    "ollama>=0.3.1",
-    "pandas>=2.2.2",
-    "pandera>=0.20.3",
-    "bokeh>=3.5.1",
-    "nltk>=3.8.1",
-    "wordcloud>=1.9.3",
-    "pytest>=8.3.2",
-    "pytest-html>=4.1.1",
-    "trogon>=0.5.0",
-    "click>=8.1.7",
-    "ipykernel>=6.29.5",
-]
-requires-python = ">=3.11"
 readme = "README.md"
-license = {text = "MIT"}
-
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires-python = ">=3.12"
+dependencies = [
+    "bokeh>=3.8.0",
+    "dataio>=0.0.5",
+    "gnews>=0.4.2",
+    "gravis>=0.1.0",
+    "matplotlib>=3.10.6",
+    "nbconvert>=7.16.6",
+    "nbformat>=5.10.4",
+    "networkx>=3.5",
+    "nltk>=3.9.1",
+    "ollama>=0.6.0",
+    "pandas>=2.3.2",
+    "pandera>=0.26.1",
+    "pytest>=8.4.2",
+    "rich>=14.1.0",
+    "tinydb>=4.8.2",
+    "trogon>=0.6.0",
+    "wordcloud>=1.9.4",
+]
 
 [project.scripts]
 looksatwords = "looksatwords.__main__:cli"
+
+[tool.uv.workspace]
+members = [
+    ".",
+]
+
+[tool.uv.sources]
+looksatwords = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "looksatwords",
+    "pytest>=8.4.2",
+]
