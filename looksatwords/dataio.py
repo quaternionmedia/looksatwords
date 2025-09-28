@@ -3,7 +3,7 @@ from pandas import DataFrame
 from os import path, makedirs
 from rich import print
 
-from .hud import hud
+from looksatwords.hud import hud
 
 import time
 def get_time():

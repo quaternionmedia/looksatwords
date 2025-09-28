@@ -1,6 +1,7 @@
-from .gatherer import GnewsGatherer
-
-from .validator import analyzed_data_schema
+from looksatwords.gatherer import GnewsGatherer
+from looksatwords.validator import analyzed_data_schema
+from looksatwords.setup.nltk import ensure_nltk_data
+ensure_nltk_data()
 
 from nltk.corpus import stopwords
 from nltk.sentiment import SentimentIntensityAnalyzer
@@ -13,7 +14,7 @@ from string import punctuation
 
 from pandas import concat, DataFrame
 
-from .hud import hud
+from looksatwords.hud import hud
 
 
 # Initialize NLTK components

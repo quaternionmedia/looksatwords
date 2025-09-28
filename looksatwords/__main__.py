@@ -2,12 +2,12 @@ from click import Argument, Option, command, option
 from trogon import tui
 from typing_extensions import Annotated
 
-from .analyzer import Analyzer
-from .gatherer import GnewsGatherer, GnewsQuery
-from .generator import GnewsGenerator
-from .logs import log
-from .orchestrator import Orchestrator
-from .visualizer import Visualizer
+from looksatwords.analyzer import Analyzer
+from looksatwords.gatherer import GnewsGatherer, GnewsQuery
+from looksatwords.generator import GnewsGenerator
+from looksatwords.logs import log
+from looksatwords.orchestrator import Orchestrator
+from looksatwords.visualizer import Visualizer
 
 orchestrator = Orchestrator()
 

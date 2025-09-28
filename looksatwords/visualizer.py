@@ -11,9 +11,9 @@ from numpy import array, pi
 from PIL import Image
 from wordcloud import WordCloud, get_single_color_func
 
-from .analyzer import Analyzer
-from .hud import hud
-from .validator import visualized_data_schema
+from looksatwords.analyzer import Analyzer
+from looksatwords.hud import hud
+from looksatwords.validator import visualized_data_schema
 
 
 class Visualizer(Analyzer):

@@ -2,10 +2,10 @@ from datetime import datetime
 
 from pandas import DataFrame
 
-from .dataio import DataIO
-from .hud import H, hud
-from .llm import generate_news_description, generate_news_headline, host_url, publisher
-from .validator import gnews_data_schema
+from looksatwords.dataio import DataIO
+from looksatwords.hud import H, hud
+from looksatwords.llm import generate_news_description, generate_news_headline, host_url, publisher
+from looksatwords.validator import gnews_data_schema
 
 
 class Generator(DataIO):

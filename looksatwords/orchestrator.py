@@ -1,8 +1,8 @@
-from .gatherer import GnewsGatherer
-from .generator import GnewsGenerator
-from .analyzer import Analyzer
-from .visualizer import Visualizer
-from .hud import hud
+from looksatwords.gatherer import GnewsGatherer
+from looksatwords.generator import GnewsGenerator
+from looksatwords.analyzer import Analyzer
+from looksatwords.visualizer import Visualizer
+from looksatwords.hud import hud
 
 
 

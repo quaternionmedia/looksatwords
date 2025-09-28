@@ -1,9 +1,9 @@
 from gnews import GNews
 from pandas import DataFrame, concat
 
-from .dataio import DataIO
-from .hud import hud
-from .validator import gnews_data_schema
+from looksatwords.dataio import DataIO
+from looksatwords.hud import hud
+from looksatwords.validator import gnews_data_schema
 
 
 class GnewsQuery:
