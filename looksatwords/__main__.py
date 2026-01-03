@@ -45,10 +45,14 @@ def cli():
 )
 def run(keywords, table, num_gen, num_gath, analysis_level, visuals_out):
     """Orchestrates the gathering, generating, analyzing, and visualizing of articles."""
+    # Create query with top news (keywords parameter not used in current GnewsQuery API)
+    query = GnewsQuery(top=True)
+    
     orchestrator.add_gatherer(
         GnewsGatherer(
             table_name=table,
-            q=GnewsQuery(keyword=" ".join(keywords)),  # n=num_gath
+            q=query,
+            n=num_gath,
         )
     )
     orchestrator.gather()
@@ -120,6 +124,77 @@ def test(cov, html, parallel, timeout, verbose, file):
         click.echo("\nAll tests passed!")
     else:
         click.echo("\nSome tests failed.")
+
+    sys.exit(result.returncode)
+
+
+@cli.command("test-api")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--timeout", type=int, default=30, help="Test timeout in seconds")
+def test_api(verbose, timeout):
+    """Run API integration tests.
+    
+    Examples:
+        looksatwords test-api                # Run API tests
+        looksatwords test-api -v             # Verbose output
+        looksatwords test-api --timeout 60   # Custom timeout
+    """
+    click.echo("Running API integration tests...\n")
+
+    cmd = [sys.executable, "-m", "pytest", "looksatwords/tests/", "-k", "api"]
+
+    if verbose:
+        cmd.append("-vv")
+    else:
+        cmd.append("-v")
+
+    if timeout:
+        cmd.append(f"--timeout={timeout}")
+
+    result = subprocess.run(cmd)
+
+    if result.returncode == 0:
+        click.echo("\nAll API tests passed!")
+    else:
+        click.echo("\nSome API tests failed.")
+
+    sys.exit(result.returncode)
+
+
+@cli.command("test-e2e")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option("--browser", default="chromium", help="Browser to use (chromium, firefox, webkit)")
+@click.option("--headed", is_flag=True, help="Run in headed mode (show browser window)")
+def test_e2e(verbose, browser, headed):
+    """Run end-to-end tests with playwright.
+    
+    Examples:
+        looksatwords test-e2e                           # Run E2E tests
+        looksatwords test-e2e -v                        # Verbose output
+        looksatwords test-e2e --browser firefox         # Use Firefox
+        looksatwords test-e2e --headed                  # Show browser window
+    """
+    click.echo(f"Running end-to-end tests with {browser}...\n")
+
+    cmd = [sys.executable, "-m", "pytest", "looksatwords/tests/", "-k", "e2e or playwright"]
+
+    if verbose:
+        cmd.append("-vv")
+    else:
+        cmd.append("-v")
+
+    # Set browser environment variable for playwright
+    env = os.environ.copy()
+    env["BROWSER"] = browser
+    if headed:
+        env["PLAYWRIGHT_HEADED"] = "1"
+
+    result = subprocess.run(cmd, env=env)
+
+    if result.returncode == 0:
+        click.echo(f"\nAll E2E tests passed!")
+    else:
+        click.echo("\nSome E2E tests failed.")
 
     sys.exit(result.returncode)
 
