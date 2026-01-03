@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation Thread Flow Visualizer</title>
+    
+    <!-- External Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    
+    <!-- Modular CSS -->
+    <link rel="stylesheet" href="css/visualizer.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <header class="header">
+            <h1 class="title">Conversation Thread Flow Visualizer</h1>
+        </header>
+        
+        <!-- Input Controls -->
+        <section class="controls">
+            <div class="input-section">
+                <textarea 
+                    id="textInput" 
+                    class="input-field"
+                    placeholder="Enter your conversation here. Format: [timestamp] Speaker: message
+
+Example:
+[00:00] John: Let's discuss our marketing strategy for next quarter.
+[00:30] Sarah: I think we should focus more on digital channels.
+[01:00] John: That's interesting, but what about our environmental impact?"
+                    aria-label="Conversation input"
+                ></textarea>
+            </div>
+            <div class="control-buttons">
+                <button class="btn" onclick="analyzeThreads()" aria-label="Analyze conversation">
+                    Analyze Conversation
+                </button>
+                <button class="btn btn--secondary" onclick="resetVisualization()" aria-label="Reset visualization">
+                    Reset
+                </button>
+                <button class="btn" onclick="loadSampleConversation()" aria-label="Load sample conversation">
+                    Load Sample
+                </button>
+            </div>
+        </section>
+
+        <!-- Playback Controls -->
+        <section class="playback-controls">
+            <button 
+                class="btn btn--secondary playback-btn" 
+                onclick="playThreadEvolution()" 
+                id="playBtn"
+                aria-label="Play evolution"
+            >
+                ▶ Play Evolution
+            </button>
+            <button 
+                class="btn btn--secondary playback-btn" 
+                onclick="pausePlayback()" 
+                id="pauseBtn"
+                aria-label="Pause playback"
+            >
+                ⏸ Pause
+            </button>
+            <div class="progress-container">
+                <span>Timeline:</span>
+                <div 
+                    class="progress-bar" 
+                    onclick="seekToPosition(event)"
+                    role="slider"
+                    aria-label="Timeline progress"
+                    tabindex="0"
+                >
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span id="timeDisplay">0:00 / 0:00</span>
+            </div>
+        </section>
+
+        <!-- Visualization Canvas -->
+        <section class="visualization-container" id="visualization" aria-label="Conversation visualization">
+            <div class="time-indicator" id="timeIndicator"></div>
+            <svg class="svg-container" id="pathContainer"></svg>
+        </section>
+
+        <!-- Analysis Panel -->
+        <section class="analysis-panel">
+            <h3 id="panelTitle">Thread Analysis</h3>
+            <p id="panelDescription">
+                This visualization shows how conversation topics (threads) emerge, evolve, and interact over time. 
+                Each colored line represents a different thread, with nodes showing intensity at specific moments.
+                Dashed arcs indicate tangents (off-topic digressions) and their resolution status.
+            </p>
+            <div class="analysis-grid" id="threadAnalysis"></div>
+            <div class="tangent-legend" id="tangentLegend">
+                <div class="tangent-legend-item">
+                    <div style="width: 20px; height: 2px; background: #00ff88;"></div>
+                    <span>Resolved Tangent</span>
+                </div>
+                <div class="tangent-legend-item">
+                    <div style="width: 20px; height: 2px; background: #ff6b6b; border-top: 2px dashed #ff6b6b;"></div>
+                    <span>Unresolved Tangent</span>
+                </div>
+                <div class="tangent-legend-item">
+                    <div style="width: 20px; height: 2px; background: #ffd93d;"></div>
+                    <span>Orphaned Tangent</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modular JavaScript -->
+    <script type="module" src="js/app.js"></script>
+    
+    <!-- Fallback for non-module browsers -->
+    <script nomodule src="visualizer.js"></script>
+</body>
+</html>
