@@ -21,10 +21,11 @@ class Generator(DataIO):
         generate(): Placeholder method to be implemented in subclasses.
         validate(): Validates the current dataframe against the predefined pandera schema.
     """
-    def __init__(self, db_path='data.json', table_name='generator', n=1):
+
+    def __init__(self, db_path="data.json", table_name="generator", n=1):
         super().__init__(db_path=db_path, table_name=table_name)
         self.df_schema = gnews_data_schema
-        self.table_name = self.table_name + '_generator'
+        self.table_name = self.table_name + "_generator"
         self.n = n
 
     def generate(self):
@@ -48,11 +49,12 @@ class GnewsGenerator(Generator):
         generate_news(hud): Generates a single news item including headline, description, and metadata.
         generate_news_batch(hud, task, n): Generates multiple news items and updates HUD progress.
     """
+
     def __init__(
-        self, seedword=None, db_path='data.json', table_name='generatednews', **kwargs
+        self, seedword=None, db_path="data.json", table_name="generatednews", **kwargs
     ):
         super().__init__(db_path=db_path, table_name=table_name, **kwargs)
-        self.table_name = self.table_name + '_gennews'
+        self.table_name = self.table_name + "_gennews"
         self.seedword = seedword
 
     @hud
@@ -66,7 +68,7 @@ class GnewsGenerator(Generator):
             DataFrame: A DataFrame containing the generated news items with columns:
                        'headline', 'description', 'url', 'published date', 'publisher'.
         """
-        columns = ['headline', 'description', 'url', 'published date', 'publisher']
+        columns = ["headline", "description", "url", "published date", "publisher"]
         batch_generate_task = hud.add_task(
             f"[green]Generator:Generating {self.n} news...", total=self.n
         )

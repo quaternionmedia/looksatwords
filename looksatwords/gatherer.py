@@ -6,7 +6,16 @@ from .hud import hud
 from .validator import gnews_data_schema
 
 
-class GnewsQuery:
+class Query:
+    def __init__(
+        self,
+        keywords=[],
+        source=None,
+    ):
+        self.keywords = keywords
+
+
+class GnewsQuery(Query):
     """
     Defines a query structure for retrieving news using GNews.
 
@@ -22,9 +31,9 @@ class GnewsQuery:
     Methods:
         __str__(): Returns a comma-separated string of all non-None query parameters.
     """
+
     def __init__(
         self,
-        keyword=None,
         top=False,
         location=None,
         topic=None,
@@ -32,7 +41,6 @@ class GnewsQuery:
         start_date=None,
         end_date=None,
     ):
-        self.keyword = keyword
         self.top = top
         self.location = location
         self.topic = topic
@@ -42,7 +50,7 @@ class GnewsQuery:
 
     def __str__(self):
         # return non none values
-        return ', '.join([f'{k}' for k, v in self.__dict__.items() if v is not None])
+        return ", ".join([f"{k}" for k, v in self.__dict__.items() if v is not None])
 
 
 class Gatherer(DataIO):
@@ -58,10 +66,11 @@ class Gatherer(DataIO):
     Methods:
         validate(): Validates the internal DataFrame against the schema and returns it.
     """
+
     def __init__(self, db_path, table_name, raw_data_schema=None, n=1):
         super().__init__(db_path=db_path, table_name=table_name)
         self.df_schema = raw_data_schema
-        self.table_name = str(table_name) + '_gatherer'
+        self.table_name = str(table_name) + "_gatherer"
         self.query = (None,)
         self.n = n
 
@@ -84,16 +93,17 @@ class GnewsGatherer(Gatherer):
         gather(hud): Fetches news articles based on the initialized query, with HUD task tracking.
         get_news(...): Manually retrieves articles using keyword, location, topic, site, or top flag.
     """
+
     def __init__(
         self,
         q: GnewsQuery = GnewsQuery(top=True),
-        db_path='data.json',
-        table_name='gnews',
+        db_path="data.json",
+        table_name="gnews",
         **kwargs,
     ):
         super().__init__(db_path=db_path, table_name=table_name, **kwargs)
         self.df_schema = gnews_data_schema
-        self.table_name = 'gnews'
+        self.table_name = "gnews"
         self.gnews = GNews(max_results=self.n)
         self.query = q
 
@@ -124,17 +134,17 @@ class GnewsGatherer(Gatherer):
                     task_gather = hud.add_task(
                         f"[yellow]Gatherer:Gathering {k}={value}...", total=1
                     )
-                    self.df = DataFrame(self.gnews.get_news(f'{k}={value}'))
+                    self.df = DataFrame(self.gnews.get_news(f"{k}={value}"))
                     hud.update(task_gather, advance=1)
                     hud.update(task_gather_batch, advance=1)
         else:
             task_gather = hud.add_task(
-                f"[yellow]{ n }Gatherer:Gathering top articles...", total=1
+                f"[yellow]{n}Gatherer:Gathering top articles...", total=1
             )
             self.df = DataFrame(self.gnews.get_top_news())
             hud.update(task_gather, advance=1)
 
-        self.df.rename(columns={'title': 'headline'}, inplace=True)
+        self.df.rename(columns={"title": "headline"}, inplace=True)
         return self.df
 
     def get_news(self, keyword=None, top=True, location=None, topic=None, site=None):
@@ -154,14 +164,14 @@ class GnewsGatherer(Gatherer):
 
         # hardcoded topics
         topics = [
-            'WORLD',
-            'NATION',
-            'BUSINESS',
-            'TECHNOLOGY',
-            'ENTERTAINMENT',
-            'SPORTS',
-            'SCIENCE',
-            'HEALTH',
+            "WORLD",
+            "NATION",
+            "BUSINESS",
+            "TECHNOLOGY",
+            "ENTERTAINMENT",
+            "SPORTS",
+            "SCIENCE",
+            "HEALTH",
         ]
         articles = []
         if keyword is not None:
@@ -173,12 +183,14 @@ class GnewsGatherer(Gatherer):
         if topic is not None:
             topic = topic.upper()
             if topic not in topics:
-                raise ValueError(f"Invalid topic '{topic}'. Valid topics are: {', '.join(topics)}")
+                raise ValueError(
+                    f"Invalid topic '{topic}'. Valid topics are: {', '.join(topics)}"
+                )
             articles.append(DataFrame(self.gnews.get_news_by_topic(topic)))
         if site is not None:
             articles.append(DataFrame(self.gnews.get_news_by_site(site)))
 
         self.df = concat(articles)
 
-        self.df.rename(columns={'title': 'headline'}, inplace=True)
+        self.df.rename(columns={"title": "headline"}, inplace=True)
         return self.df
