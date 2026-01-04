@@ -25,6 +25,9 @@ dependencies = [
     "trogon>=0.5.0",
     "click>=8.1.7",
     "ipykernel>=6.29.5",
+    "fastapi>=0.128.0",
+    "uvicorn>=0.40.0",
+    "sqlmodel>=0.0.31",
 ]
 requires-python = ">=3.13"
 readme = "README.md"
@@ -45,3 +48,8 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 looksatwords = "looksatwords.__main__:cli"
+
+[tool.pytest.ini_options]
+markers = [
+    "e2e: end-to-end tests requiring browser (deselect with '-m \"not e2e\"')"
+]

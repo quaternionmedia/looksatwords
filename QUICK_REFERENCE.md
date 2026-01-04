@@ -9,13 +9,9 @@
 uv sync
 uv run alembic upgrade head
 
-# 2. Start API Backend (Terminal 1)
-uv run looksatwords run-server
-# → http://localhost:8000
-
-# 3. Start Frontend (Terminal 2)
+# 2. Start Server (API + Frontend)
 uv run looksatwords serve
-# → http://localhost:8080/visualizer.html
+# → http://localhost:8000
 ```
 
 ## 📚 Documentation
@@ -56,8 +52,8 @@ uv run pytest looksatwords/tests/test_api.py -v
 ## 🏗️ Architecture
 
 ```
-Browser (Frontend) → FastAPI (Backend) → SQLite (Database)
-  Port 8080            Port 8000          looksatwords.db
+Browser → FastAPI Server → SQLite Database
+           Port 8000       looksatwords.db
 ```
 
 ## 📦 Features
@@ -86,9 +82,10 @@ uv run alembic current                # Show version
 uv run alembic history                # Show history
 
 # Servers
-uv run looksatwords run-server --port 8001  # Custom port
-uv run looksatwords run-server --reload     # Auto-reload
-uv run looksatwords serve --port 8081       # Custom frontend port
+uv run looksatwords serve                   # Start server (opens browser)
+uv run looksatwords serve --port 8001       # Custom port
+uv run looksatwords serve --reload          # Auto-reload for development
+uv run looksatwords serve --no-open         # Don't open browser
 ```
 
 ## 📞 Support

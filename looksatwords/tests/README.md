@@ -14,7 +14,7 @@ tests/
 ├── test_orchestrator.py      # Orchestration tests
 ├── test_visualizer.py        # Visualization tests
 ├── test_api.py               # API endpoint tests (5 tests)
-└── test_e2e.py               # End-to-end browser tests (11 tests)
+└── test_e2e.py               # End-to-end browser tests (22 tests)
 ```
 
 ## Running Tests
@@ -49,7 +49,7 @@ uv run pytest looksatwords/tests/test_analyzer.py::test_analyze_conversation -v
 uv run pytest looksatwords/tests/test_api.py -v
 
 # Run with backend server
-uv run looksatwords run-server &
+uv run looksatwords serve --no-open &
 uv run pytest looksatwords/tests/test_api.py -v
 ```
 
@@ -101,7 +101,7 @@ Current test status: **62+ tests passing**
 | Orchestrator | 6+ | ✅ |
 | Visualizer | 5+ | ✅ |
 | API Endpoints | 5 | ✅ |
-| E2E Browser | 11 | ✅ |
+| E2E Browser | 22 | ✅ |
 
 ## E2E Tests
 
@@ -109,28 +109,56 @@ The `test_e2e.py` file contains comprehensive browser automation tests:
 
 ### Test Coverage
 
-1. **Smoke Tests**
+1. **Playwright Setup Tests**
    - `test_playwright_available` - Verify Playwright installation
    - `test_playwright_browser_launch` - Browser launches successfully
 
-2. **Frontend Tests**
-   - `test_frontend_loads` - Page loads with all elements
-   - `test_conversation_analysis_basic` - Basic analysis workflow
-   - `test_conversation_speakers_detected` - Speaker identification
-   - `test_empty_conversation_handling` - Empty input handling
-   - `test_reset_functionality` - Reset button works
-   - `test_playback_controls` - Timeline playback
-   - `test_complex_conversation_analysis` - Multi-thread analysis
+2. **Server Health Tests**
+   - `test_server_health` - Health endpoint responds
+   - `test_api_docs_available` - API docs accessible
 
-3. **Integration Tests**
-   - `test_conversation_with_backend_persistence` - Full-stack workflow
+3. **Frontend Loading Tests**
+   - `test_frontend_loads` - Page loads successfully
+   - `test_frontend_elements_present` - Key UI elements visible
+   - `test_css_loads` - CSS styles applied
+   - `test_javascript_loads` - JS functions available
+
+4. **User Interaction Tests**
+   - `test_sample_conversation_load` - Load sample button works
+   - `test_reset_functionality` - Reset button clears input
+   - `test_conversation_analysis_basic` - Basic analysis workflow
+   - `test_empty_conversation_handling` - Empty input handling
+   - `test_conversation_speakers_detected` - Speaker identification
+
+5. **Playback Controls Tests**
+   - `test_playback_controls_visible` - Playback UI visible
+   - `test_playback_after_analysis` - Playback works after analysis
+
+6. **Complex Conversation Tests**
+   - `test_complex_conversation_analysis` - Multi-thread analysis
+   - `test_conversation_with_tangents` - Tangent detection
+
+7. **API Integration Tests**
+   - `test_api_conversations_list` - List endpoint works
+   - `test_api_conversation_analyze` - Analyze endpoint works
+   - `test_api_conversation_crud` - Full CRUD operations
 
 ### Fixtures
 
-- `frontend_server` - Starts frontend on port 8081
-- `api_server` - Starts API server on port 8001
+- `server_url` - Provides server URL, skips if server not running
+- `browser_context` - Provides Playwright browser instance
 
 ### Running E2E Tests
+
+E2E tests require the server to be running:
+
+```bash
+# Terminal 1: Start server
+uv run looksatwords serve --no-open
+
+# Terminal 2: Run tests
+uv run pytest looksatwords/tests/test_e2e.py -v -m e2e
+```
 
 ```bash
 # Quick test
@@ -187,25 +215,24 @@ def test_analyzer_handles_empty_input():
 
 1. Edit `test_e2e.py`
 2. Mark with `@pytest.mark.e2e`
-3. Use fixtures for server setup
+3. Use fixtures for server and browser
 4. Follow existing patterns
 5. Add docstring with test description
 
 Example:
 ```python
-@pytest.mark.e2e
-def test_new_feature(frontend_server):
+def test_new_feature(server_url, browser_context):
     """Test new feature works in browser."""
-    from playwright.sync_api import sync_playwright
+    page = browser_context.new_page()
     
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(f"{frontend_server}/index.html")
+    try:
+        page.goto(f"{server_url}/")
+        page.wait_for_load_state("networkidle")
         
         # Test logic here
-        
-        browser.close()
+        assert page.locator("#some-element").is_visible()
+    finally:
+        page.close()
 ```
 
 ## CI/CD Integration
@@ -241,7 +268,11 @@ uv run playwright install chromium
 
 ### "Port already in use"
 
-E2E tests use ports 8001 and 8081. Stop any services using these ports.
+E2E tests use port 8000 by default. Stop any services using this port or use a custom port:
+
+```bash
+uv run looksatwords serve --no-open --port 8001
+```
 
 ### Tests taking too long
 
@@ -298,5 +329,5 @@ uv run pytest looksatwords/tests/ -n auto
 ---
 
 **Last Updated**: January 2026  
-**Total Tests**: 62+  
+**Total Tests**: 70+  
 **Test Coverage**: Comprehensive

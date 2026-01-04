@@ -1,4 +1,4 @@
-from pandera import Column, String, DataFrameSchema, Index, Object, Float, Int
+from pandera.pandas import Column, String, DataFrameSchema, Index, Object, Float, Int
 
 
 class BaseSchema:

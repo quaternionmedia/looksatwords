@@ -255,6 +255,58 @@ def install_dev():
     sys.exit(result.returncode)
 
 
+def _run_server(host, port, reload, open_browser):
+    """Internal function to run the FastAPI server."""
+    import threading
+    import webbrowser
+    import uvicorn
+    
+    url = f"http://{host}:{port}"
+    click.echo(f"Starting server on {url}")
+    click.echo(f"API docs available at {url}/docs")
+    click.echo("Press Ctrl+C to stop\n")
+    
+    if open_browser:
+        # Open browser in a separate thread to not block server
+        threading.Timer(1, lambda: webbrowser.open(url)).start()
+    
+    uvicorn.run(
+        "looksatwords.app.main:app",
+        host=host,
+        port=port,
+        reload=reload
+    )
+
+
+@cli.command()
+@click.option("--host", default="127.0.0.1", help="Host to bind to")
+@click.option("--port", "-p", default=8000, help="Port to bind to")
+@click.option("--reload", is_flag=True, help="Enable auto-reload for development")
+@click.option("--no-open", is_flag=True, help="Don't open browser automatically")
+def serve(host, port, reload, no_open):
+    """Start the application server (API + frontend).
+    
+    Examples:
+        looksatwords serve                   # Serve on localhost:8000
+        looksatwords serve -p 8080          # Serve on port 8080
+        looksatwords serve --reload          # With auto-reload for development
+        looksatwords serve --host 0.0.0.0    # Listen on all interfaces
+        looksatwords serve --no-open         # Don't open browser
+    """
+    _run_server(host, port, reload, open_browser=not no_open)
+
+
+# Alias for backward compatibility
+@cli.command("run-server", hidden=True)
+@click.option("--host", default="127.0.0.1", help="Host to bind to")
+@click.option("--port", "-p", default=8000, help="Port to bind to")
+@click.option("--reload", is_flag=True, help="Enable auto-reload for development")
+def run_server(host, port, reload):
+    """Run the FastAPI backend server (deprecated, use 'serve' instead)."""
+    click.echo("Note: 'run-server' is deprecated, use 'serve' instead.\n")
+    _run_server(host, port, reload, open_browser=False)
+
+
 @cli.command()
 def doctor():
     """Check environment health and dependencies."""
