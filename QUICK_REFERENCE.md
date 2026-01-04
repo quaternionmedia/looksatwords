@@ -1,52 +1,52 @@
 # looksatwords Quick Reference
 
-> Full-stack conversation analyzer with FastAPI backend and interactive frontend
+> Conversation thread analyzer with FastAPI backend and interactive frontend
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Setup (first time only)
+# Setup
+git clone https://github.com/quaternionmedia/looksatwords.git
+cd looksatwords
 uv sync
-uv run alembic upgrade head
 
-# 2. Start Server (API + Frontend)
+# Run
 uv run looksatwords serve
 # → http://localhost:8000
 ```
 
 ## 📚 Documentation
 
-**[→ Browse Full Documentation](docs/README.md)**
-
 | Guide | Description |
 |-------|-------------|
-| [Quick Start](docs/QUICKSTART.md) | 3-step setup guide |
-| [Getting Started](docs/GETTING_STARTED.md) | Overview and navigation |
-| [Backend Integration](docs/BACKEND_INTEGRATION.md) | API reference |
-| [Frontend Guide](docs/FRONTEND.md) | Frontend features |
-| [Implementation](docs/IMPLEMENTATION_SUMMARY.md) | Technical details |
-| [Contributing](docs/CONTRIBUTING.md) | How to contribute |
+| [Getting Started](docs/getting-started.md) | Installation and setup |
+| [CLI Reference](docs/cli.md) | All commands |
+| [API Reference](docs/api.md) | REST endpoints |
+| [Contributing](docs/contributing.md) | Development guide |
+| [Testing](docs/testing.md) | Test guide |
 
 ## 🔌 API Endpoints
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | `GET` | `/health` | Health check |
-| `POST` | `/api/conversations/analyze` | Analyze & save conversation |
-| `GET` | `/api/conversations` | List all conversations |
-| `GET` | `/api/conversations/{id}` | Get specific conversation |
-| `DELETE` | `/api/conversations/{id}` | Delete conversation |
+| `POST` | `/analyze` | Analyze conversation |
+| `POST` | `/threads` | Create thread |
+| `GET` | `/threads` | List threads |
+| `GET` | `/threads/{id}` | Get thread |
+| `DELETE` | `/threads/{id}` | Delete thread |
 
-**Interactive API Docs:** http://localhost:8000/docs
+**Interactive Docs:** http://localhost:8000/docs
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-uv run pytest looksatwords/tests/ -v
+# All tests
+uv run pytest
 
-# Run only API tests
-uv run pytest looksatwords/tests/test_api.py -v
+# E2E tests (server must be running)
+uv run looksatwords serve --no-open &
+uv run pytest looksatwords/tests/test_e2e.py -v
 ```
 
 ## 🏗️ Architecture
@@ -56,44 +56,37 @@ Browser → FastAPI Server → SQLite Database
            Port 8000       looksatwords.db
 ```
 
-## 📦 Features
-
-- ✅ Full REST API with 5 endpoints
-- ✅ SQLModel ORM with type safety
-- ✅ Alembic database migrations
-- ✅ Interactive frontend visualizer
-- ✅ 62 comprehensive tests
-- ✅ Automatic API documentation
-- ✅ CORS support
-- ✅ Graceful fallback when offline
-
-## 🛠️ Common Commands
+## 🛠️ Commands
 
 ```bash
+# Server
+uv run looksatwords serve              # Start (opens browser)
+uv run looksatwords serve --no-open    # Start (no browser)
+uv run looksatwords serve --port 8001  # Custom port
+
+# Pipeline
+uv run looksatwords run -i input.txt   # Full pipeline
+uv run looksatwords gather             # Extract text
+uv run looksatwords analyze            # Analyze text
+uv run looksatwords visualize          # Generate output
+
 # Development
-uv run looksatwords test              # Run tests
-uv run looksatwords format-code       # Format code
-uv run looksatwords lint              # Check style
-uv run looksatwords doctor            # Check environment
+uv run pytest                          # Run tests
+uv run ruff check --fix                # Fix lint
+uv run ruff format                     # Format code
 
 # Database
-uv run alembic upgrade head           # Apply migrations
-uv run alembic current                # Show version
-uv run alembic history                # Show history
-
-# Servers
-uv run looksatwords serve                   # Start server (opens browser)
-uv run looksatwords serve --port 8001       # Custom port
-uv run looksatwords serve --reload          # Auto-reload for development
-uv run looksatwords serve --no-open         # Don't open browser
+uv run alembic upgrade head            # Apply migrations
 ```
 
-## 📞 Support
+## 📦 Features
 
-- **Documentation**: [docs/](docs/)
-- **API Reference**: http://localhost:8000/docs
-- **Issues**: Check [docs/QUICKSTART.md](docs/QUICKSTART.md#troubleshooting)
+- REST API with interactive docs
+- SQLModel ORM with migrations
+- Interactive thread visualizer
+- 70+ tests (unit + e2e)
+- CLI pipeline tools
 
 ---
 
-**Full Documentation:** [docs/README.md](docs/README.md)
+**Full docs:** [docs/](docs/)
