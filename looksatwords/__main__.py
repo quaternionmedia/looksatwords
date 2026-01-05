@@ -249,10 +249,21 @@ def clean():
 
 @cli.command("install-dev")
 def install_dev():
-    """Install development dependencies (via uv sync)."""
+    """Install development dependencies (via uv sync) and Playwright browsers."""
     click.echo("Syncing development environment...")
     result = subprocess.run(["uv", "sync"])
-    sys.exit(result.returncode)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+    
+    # Install Playwright browsers for E2E tests
+    click.echo("\nInstalling Playwright browsers for E2E tests...")
+    pw_result = subprocess.run(["uv", "run", "playwright", "install", "chromium"])
+    if pw_result.returncode != 0:
+        click.echo("Warning: Playwright browser installation failed. E2E tests may be skipped.")
+    else:
+        click.echo("Playwright browsers installed successfully!")
+    
+    sys.exit(0)
 
 
 def _run_server(host, port, reload, open_browser):
