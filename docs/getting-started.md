@@ -38,9 +38,18 @@ This will:
 
 ### Try It Out
 
-1. Paste a conversation into the text area (or click "Load Sample")
-2. Click "Analyze Conversation"
-3. Watch the thread visualization appear
+1. Paste a conversation into the text area (or click **Sample** to load example data)
+2. Click **Analyze** to process the conversation
+3. Watch the thread visualization appear with the analytics panel
+
+**UI Controls:**
+- **Sample** - Load example conversation
+- **Generate** - Create AI-generated conversation (requires Ollama)
+- **Analyze** - Process and visualize conversation
+- **Reset** - Clear visualization
+- **Load** - Load saved conversation from database
+- **Export** - Download all conversations as JSON
+- **Import** - Upload conversations from JSON backup
 
 ### Explore the API
 

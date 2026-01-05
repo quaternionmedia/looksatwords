@@ -27,16 +27,18 @@ uv run pytest --cov=looksatwords --cov-report=html
 ```
 looksatwords/tests/
 ├── __init__.py
-├── test_gatherer.py      # Text extraction (17 tests)
-├── test_analyzer.py      # NLP analysis (15 tests)  
-├── test_generator.py     # AI generation (5 tests)
-├── test_visualizer.py    # HTML output (6 tests)
-├── test_orchestrator.py  # Pipeline (8 tests)
-├── test_dataio.py        # Data I/O (5 tests)
-└── test_e2e.py           # E2E browser tests (22 tests)
+├── test_gatherer.py          # Text extraction (17 tests)
+├── test_analyzer.py          # NLP analysis (15 tests)  
+├── test_generator.py         # AI generation (5 tests)
+├── test_visualizer.py        # HTML output (6 tests)
+├── test_orchestrator.py      # Pipeline (8 tests)
+├── test_dataio.py            # Data I/O (5 tests)
+├── test_analytics_service.py # Analytics service (23 tests)
+├── test_frontend.py          # Frontend modules (30+ tests)
+└── test_e2e.py               # E2E browser tests (30+ tests)
 ```
 
-**Total: 70+ tests**
+**Total: 130+ tests**
 
 ---
 
@@ -53,6 +55,21 @@ uv run pytest looksatwords/tests/test_analyzer.py -v
 
 # Single test
 uv run pytest looksatwords/tests/test_analyzer.py::test_function_name -v
+```
+
+### Using the Test CLI
+
+The project includes a convenient test runner:
+
+```bash
+# Run all tests
+uv run looksatwords test
+
+# Run tests for specific file
+uv run looksatwords test -f analytics_service -v
+
+# Run with verbose output
+uv run looksatwords test -v
 ```
 
 ### Writing Unit Tests
@@ -124,6 +141,8 @@ uv run pytest looksatwords/tests/test_e2e.py -v
 4. **Playback Controls** - Play/pause functionality
 5. **Complex Conversation** - Multi-participant threads
 6. **API Integration** - Full request/response cycle
+7. **Analytics API** - NLTK analytics endpoints
+8. **Analytics Panel** - Frontend analytics visualization
 
 ### Writing E2E Tests
 

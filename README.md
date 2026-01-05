@@ -24,9 +24,11 @@ Visit http://localhost:8000 to analyze conversations.
 ## Features
 
 - **Gather** - Collect language data from various sources
-- **Generate** - Create synthetic data using LLMs (Ollama)
-- **Analyze** - Sentiment analysis, grammar checking, word frequencies
-- **Visualize** - Interactive conversation thread visualizations
+- **Generate** - Create synthetic conversations using LLMs (Ollama)
+- **Analyze** - Sentiment analysis, word frequencies, parts of speech
+- **Visualize** - Interactive conversation thread flow visualizations
+- **Analytics** - Real-time analytics panel with sentiment timeline
+- **Import/Export** - Backup and restore conversation databases
 
 ## Documentation
 
