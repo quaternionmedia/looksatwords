@@ -15,6 +15,7 @@ export class VisualizationRenderer {
         this.svgId = svgId;
         this.svg = null;
         this.dimensions = null;
+        this.viewMode = 'topics'; // 'topics' or 'speakers'
         
         if (!this.canvas) {
             throw new Error(`Canvas element with id '${canvasId}' not found`);
@@ -60,15 +61,24 @@ export class VisualizationRenderer {
      * @param {Tangent[]} tangents - Detected tangents
      * @param {Map<string, Speaker>} speakers - Speaker map
      * @param {number} totalDuration - Total conversation duration
+     * @param {string} viewMode - 'topics' or 'speakers'
      */
-    render(threads, tangents, speakers, totalDuration) {
+    render(threads, tangents, speakers, totalDuration, viewMode = 'topics') {
+        this.viewMode = viewMode;
         this.clear();
         this.dimensions = this.getCanvasDimensions();
 
         this.renderTimeline(totalDuration);
-        this.renderThreads(threads, totalDuration);
-        this.renderTangents(tangents, threads, totalDuration);
-        this.renderSpeakerLegend(speakers);
+        
+        if (viewMode === 'speakers') {
+            this.renderBySpeaker(threads, speakers, totalDuration);
+            // Skip tangents in speaker view - they're topic-related
+        } else {
+            this.renderThreads(threads, totalDuration);
+            this.renderTangents(tangents, threads, totalDuration);
+        }
+        
+        this.renderLegend(speakers, threads, viewMode);
     }
 
     /**
@@ -131,7 +141,7 @@ export class VisualizationRenderer {
         path.setAttribute('stroke', thread.color);
         path.setAttribute('stroke-width', '3');
         path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0');
+        path.setAttribute('opacity', '0.7');
         path.classList.add('thread-path');
         path.id = `thread-path-${threadIndex}`;
 
@@ -259,6 +269,289 @@ export class VisualizationRenderer {
         label.style.top = `${CONFIG.dimensions.canvasPadding + threadIndex * CONFIG.dimensions.threadSpacing}px`;
         label.textContent = thread.name.charAt(0).toUpperCase() + thread.name.slice(1);
         this.canvas.appendChild(label);
+    }
+
+    /**
+     * Render visualization by speaker (speaker/time view)
+     * Groups all messages by speaker, Y-axis = speakers, X-axis = time
+     * @param {Thread[]} threads - Array of threads
+     * @param {Map<string, Speaker>} speakers - Speaker map
+     * @param {number} totalDuration - Total duration
+     */
+    renderBySpeaker(threads, speakers, totalDuration) {
+        const safeDuration = Math.max(totalDuration, 1);
+        const speakerArray = Array.from(speakers.entries());
+        
+        // Build a speaker-to-index map for Y positioning
+        const speakerIndexMap = new Map();
+        speakerArray.forEach(([name], index) => {
+            speakerIndexMap.set(name, index);
+        });
+        
+        // Collect ALL points from all threads in chronological order for flow lines
+        const allPoints = [];
+        threads.forEach((thread, threadIndex) => {
+            if (!thread.points) return;
+            thread.points.forEach((point, pointIndex) => {
+                allPoints.push({
+                    ...point,
+                    threadColor: thread.color,
+                    threadName: thread.name,
+                    threadIndex,
+                    pointIndex,
+                    speakerIndex: speakerIndexMap.get(point.speaker) ?? 0
+                });
+            });
+        });
+        
+        // Sort all points by time for flow visualization
+        allPoints.sort((a, b) => a.time - b.time);
+        
+        // Render speaker labels and baselines
+        speakerArray.forEach(([speakerName, speaker], speakerIndex) => {
+            this.renderSpeakerLabel(speakerName, speaker, speakerIndex);
+        });
+        
+        // Render conversation flow paths (connecting all points chronologically)
+        this.renderConversationFlow(allPoints, speakerArray, safeDuration);
+        
+        // Render thread-grouped paths (connecting points within same thread)
+        threads.forEach((thread, threadIndex) => {
+            this.renderSpeakerThreadPath(thread, threadIndex, speakerIndexMap, safeDuration);
+        });
+        
+        // Render all nodes
+        allPoints.forEach((point, globalIndex) => {
+            this.renderSpeakerNode(point, point.speakerIndex, globalIndex, speakerArray, safeDuration);
+        });
+    }
+
+    /**
+     * Render a speaker label
+     */
+    renderSpeakerLabel(speakerName, speaker, speakerIndex) {
+        const { canvasPadding, threadSpacing } = CONFIG.dimensions;
+        const baseY = canvasPadding + speakerIndex * threadSpacing;
+        
+        const label = document.createElement('div');
+        label.className = 'thread-label';
+        label.style.color = speaker.color;
+        label.style.top = `${baseY}px`;
+        label.textContent = speakerName;
+        this.canvas.appendChild(label);
+    }
+
+    /**
+     * Render conversation flow lines connecting all messages chronologically
+     */
+    renderConversationFlow(allPoints, speakerArray, totalDuration) {
+        if (allPoints.length < 2) return;
+        
+        const { canvasPadding, threadSpacing } = CONFIG.dimensions;
+        
+        // Create flow path connecting all points in time order
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        
+        let pathData = '';
+        for (let i = 0; i < allPoints.length; i++) {
+            const point = allPoints[i];
+            const x = this.calculateX(point.time, totalDuration);
+            const baseY = canvasPadding + point.speakerIndex * threadSpacing;
+            const waveOffset = Math.sin(point.time * 0.1) * 15;
+            const y = baseY + 30 + waveOffset;
+            
+            if (i === 0) {
+                pathData = `M ${x} ${y}`;
+            } else {
+                const prev = allPoints[i - 1];
+                const prevX = this.calculateX(prev.time, totalDuration);
+                const prevBaseY = canvasPadding + prev.speakerIndex * threadSpacing;
+                const prevWaveOffset = Math.sin(prev.time * 0.1) * 15;
+                const prevY = prevBaseY + 30 + prevWaveOffset;
+                
+                // Use bezier curve for smooth transitions
+                const midX = (prevX + x) / 2;
+                pathData += ` C ${midX} ${prevY}, ${midX} ${y}, ${x} ${y}`;
+            }
+        }
+        
+        path.setAttribute('d', pathData);
+        path.setAttribute('stroke', 'rgba(255, 255, 255, 0.2)');
+        path.setAttribute('stroke-width', '1');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke-dasharray', '4,4');
+        path.classList.add('conversation-flow');
+        
+        this.svg.appendChild(path);
+    }
+
+    /**
+     * Render a thread path in speaker view (connects same-thread points)
+     */
+    renderSpeakerThreadPath(thread, threadIndex, speakerIndexMap, totalDuration) {
+        if (!thread.points || thread.points.length < 2) return;
+        
+        const { canvasPadding, threadSpacing } = CONFIG.dimensions;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        
+        let pathData = '';
+        thread.points.forEach((point, i) => {
+            const speakerIndex = speakerIndexMap.get(point.speaker) ?? 0;
+            const x = this.calculateX(point.time, totalDuration);
+            const baseY = canvasPadding + speakerIndex * threadSpacing;
+            const waveOffset = Math.sin(point.time * 0.1) * 15;
+            const y = baseY + 30 + waveOffset;
+            
+            if (i === 0) {
+                pathData = `M ${x} ${y}`;
+            } else {
+                const prev = thread.points[i - 1];
+                const prevSpeakerIndex = speakerIndexMap.get(prev.speaker) ?? 0;
+                const prevX = this.calculateX(prev.time, totalDuration);
+                const prevBaseY = canvasPadding + prevSpeakerIndex * threadSpacing;
+                const prevWaveOffset = Math.sin(prev.time * 0.1) * 15;
+                const prevY = prevBaseY + 30 + prevWaveOffset;
+                
+                const midX = (prevX + x) / 2;
+                pathData += ` C ${midX} ${prevY}, ${midX} ${y}, ${x} ${y}`;
+            }
+        });
+        
+        path.setAttribute('d', pathData);
+        path.setAttribute('stroke', thread.color);
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('opacity', '0.6');
+        path.classList.add('thread-path');
+        path.id = `speaker-thread-path-${threadIndex}`;
+        
+        this.svg.appendChild(path);
+    }
+
+    /**
+     * Render a single node in speaker view
+     */
+    renderSpeakerNode(point, speakerIndex, globalIndex, speakerArray, totalDuration) {
+        const { canvasPadding, threadSpacing, nodeMinSize, nodeMaxSize } = CONFIG.dimensions;
+        const [, speaker] = speakerArray[speakerIndex] || ['Unknown', { color: '#ffffff' }];
+        
+        const x = this.calculateX(point.time, totalDuration);
+        const baseY = canvasPadding + speakerIndex * threadSpacing;
+        const waveOffset = Math.sin(point.time * 0.1) * 15;
+        const y = baseY + 30 + waveOffset;
+        
+        const node = document.createElement('div');
+        node.className = 'thread-node';
+        node.id = `speaker-node-${speakerIndex}-${globalIndex}`;
+        
+        const size = Math.max(nodeMinSize, nodeMaxSize * (point.intensity || 0.5));
+        
+        // Use thread color for fill, speaker color for border
+        node.style.cssText = `
+            left: ${x - size / 2}px;
+            top: ${y - size / 2}px;
+            width: ${size}px;
+            height: ${size}px;
+            background: radial-gradient(circle, ${point.threadColor}88, ${point.threadColor}CC);
+            color: white;
+            border: 3px solid ${speaker.color};
+            font-size: ${Math.max(8, size * 0.25)}px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            box-shadow: 0 0 8px ${point.threadColor};
+            opacity: 1;
+            z-index: 50;
+        `;
+        
+        // Show topic initial
+        const topicInitial = point.threadName ? point.threadName.charAt(0).toUpperCase() : '?';
+        node.textContent = topicInitial;
+        node.title = `[${point.threadName}] ${point.speaker}: ${point.text}`;
+        
+        this.canvas.appendChild(node);
+    }
+
+    /**
+     * Render a single speaker's lane with their messages
+     * @param {string} speakerName - Speaker name
+     * @param {Speaker} speaker - Speaker object
+     * @param {number} speakerIndex - Index for Y position
+     * @param {Array} points - Array of message points for this speaker
+     * @param {number} totalDuration - Total duration
+     */
+    renderSpeakerLane(speakerName, speaker, speakerIndex, points, totalDuration) {
+        const { canvasPadding, threadSpacing, nodeMinSize, nodeMaxSize } = CONFIG.dimensions;
+        const baseY = canvasPadding + speakerIndex * threadSpacing;
+        
+        // Render speaker label
+        const label = document.createElement('div');
+        label.className = 'thread-label';
+        label.style.color = speaker.color;
+        label.style.top = `${baseY}px`;
+        label.textContent = speakerName;
+        this.canvas.appendChild(label);
+        
+        // Render a baseline for the speaker
+        if (points.length > 1) {
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const startX = this.calculateX(points[0].time, totalDuration);
+            const endX = this.calculateX(points[points.length - 1].time, totalDuration);
+            
+            path.setAttribute('d', `M ${startX} ${baseY + 30} L ${endX} ${baseY + 30}`);
+            path.setAttribute('stroke', speaker.color);
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('opacity', '0.5');
+            path.classList.add('speaker-lane');
+            
+            this.svg.appendChild(path);
+        } else if (points.length === 1) {
+            // Single point - still render baseline as a dot position indicator
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            const x = this.calculateX(points[0].time, totalDuration);
+            path.setAttribute('cx', x);
+            path.setAttribute('cy', baseY + 30);
+            path.setAttribute('r', '3');
+            path.setAttribute('fill', speaker.color);
+            path.setAttribute('opacity', '0.5');
+            this.svg.appendChild(path);
+        }
+        
+        // Render nodes for each message
+        points.forEach((point, pointIndex) => {
+            const x = this.calculateX(point.time, totalDuration);
+            const waveOffset = Math.sin(point.time * 0.1) * 15;
+            const y = baseY + 30 + waveOffset;
+            
+            const node = document.createElement('div');
+            node.className = 'thread-node';
+            node.id = `speaker-node-${speakerIndex}-${pointIndex}`;
+            
+            const size = Math.max(nodeMinSize, nodeMaxSize * (point.intensity || 0.5));
+            
+            // Use thread color for the node fill, speaker color for border
+            // Include opacity: 1 to override CSS default of opacity: 0
+            node.style.cssText = `
+                left: ${x - size / 2}px;
+                top: ${y - size / 2}px;
+                width: ${size}px;
+                height: ${size}px;
+                background: radial-gradient(circle, ${point.threadColor}88, ${point.threadColor}CC);
+                color: white;
+                border: 3px solid ${speaker.color};
+                font-size: ${Math.max(8, size * 0.25)}px;
+                text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+                box-shadow: 0 0 8px ${point.threadColor};
+                opacity: 1;
+                z-index: 50;
+            `;
+            
+            // Show topic initial in speaker view
+            const topicInitial = point.threadName ? point.threadName.charAt(0).toUpperCase() : '?';
+            node.textContent = topicInitial;
+            node.title = `[${point.threadName}] ${point.speaker}: ${point.text}`;
+            
+            this.canvas.appendChild(node);
+        });
     }
 
     /**
@@ -390,32 +683,67 @@ export class VisualizationRenderer {
     }
 
     /**
-     * Render speaker legend
+     * Render legend based on view mode
+     * In topics view: show speakers (since Y-axis is topics)
+     * In speakers view: show topics (since Y-axis is speakers)
+     * @param {Map<string, Speaker>} speakers - Map of speakers
+     * @param {Thread[]} threads - Array of threads
+     * @param {string} viewMode - 'topics' or 'speakers'
+     */
+    renderLegend(speakers, threads, viewMode) {
+        const legend = document.createElement('div');
+        legend.className = 'speaker-legend';
+        
+        if (viewMode === 'speakers') {
+            // Show topics legend (Y-axis already shows speakers)
+            if (!threads || threads.length === 0) return;
+            
+            threads.forEach((thread) => {
+                const item = document.createElement('div');
+                item.className = 'speaker-item';
+
+                const colorDot = document.createElement('div');
+                colorDot.className = 'speaker-dot';
+                colorDot.style.background = thread.color;
+                colorDot.textContent = thread.name.charAt(0).toUpperCase();
+
+                const itemName = document.createElement('span');
+                itemName.textContent = thread.name;
+
+                item.appendChild(colorDot);
+                item.appendChild(itemName);
+                legend.appendChild(item);
+            });
+        } else {
+            // Show speakers legend (Y-axis already shows topics)
+            if (speakers.size === 0) return;
+            
+            speakers.forEach((speaker, name) => {
+                const item = document.createElement('div');
+                item.className = 'speaker-item';
+
+                const colorDot = document.createElement('div');
+                colorDot.className = 'speaker-dot';
+                colorDot.style.background = speaker.color;
+                colorDot.textContent = speaker.getInitial ? speaker.getInitial() : name.charAt(0).toUpperCase();
+
+                const itemName = document.createElement('span');
+                itemName.textContent = name;
+
+                item.appendChild(colorDot);
+                item.appendChild(itemName);
+                legend.appendChild(item);
+            });
+        }
+
+        this.canvas.appendChild(legend);
+    }
+
+    /**
+     * Render speaker legend (legacy - use renderLegend instead)
      * @param {Map<string, Speaker>} speakers - Map of speakers
      */
     renderSpeakerLegend(speakers) {
-        if (speakers.size === 0) return;
-
-        const legend = document.createElement('div');
-        legend.className = 'speaker-legend';
-
-        speakers.forEach((speaker, name) => {
-            const speakerItem = document.createElement('div');
-            speakerItem.className = 'speaker-item';
-
-            const colorDot = document.createElement('div');
-            colorDot.className = 'speaker-dot';
-            colorDot.style.background = speaker.color;
-            colorDot.textContent = speaker.getInitial ? speaker.getInitial() : name.charAt(0).toUpperCase();
-
-            const speakerName = document.createElement('span');
-            speakerName.textContent = name;
-
-            speakerItem.appendChild(colorDot);
-            speakerItem.appendChild(speakerName);
-            legend.appendChild(speakerItem);
-        });
-
-        this.canvas.appendChild(legend);
+        this.renderLegend(speakers, [], 'topics');
     }
 }

@@ -18,6 +18,7 @@ export class AnimationController {
         this.threads = [];
         this.tangents = [];
         this.animationFrameId = null;
+        this.viewMode = 'topics';
     }
 
     /**
@@ -25,23 +26,30 @@ export class AnimationController {
      * @param {Thread[]} threads - Threads to animate
      * @param {Tangent[]} tangents - Tangents to animate
      * @param {number} totalDuration - Total duration
+     * @param {string} viewMode - 'topics' or 'speakers'
      */
-    setData(threads, tangents, totalDuration) {
+    setData(threads, tangents, totalDuration, viewMode = 'topics') {
         this.threads = threads;
         this.tangents = tangents;
         this.totalDuration = totalDuration;
+        this.viewMode = viewMode;
     }
 
     /**
      * Animate the initial appearance of visualization elements
      */
     animateAppearance() {
-        this.animateThreadPaths();
-        this.animateThreadNodes();
+        // Only animate thread paths and nodes in topics view
+        // Speaker view nodes already have opacity: 1 set inline
+        if (this.viewMode !== 'speakers') {
+            this.animateThreadPaths();
+            this.animateThreadNodes();
+        }
 
-        // Animate tangents after a delay
+        // Animate tangents after a delay (applies to both views)
         if (this.tangents.length > 0) {
-            setTimeout(() => this.animateTangents(), 1500);
+            const delay = this.viewMode === 'speakers' ? 100 : 1500;
+            setTimeout(() => this.animateTangents(), delay);
         }
     }
 
@@ -289,10 +297,28 @@ export class AnimationController {
     }
 
     /**
+     * Stop all running anime.js animations
+     */
+    stopAllAnimations() {
+        if (typeof anime !== 'undefined' && anime.running) {
+            // Get all running animations and pause/remove them
+            const running = anime.running;
+            for (let i = running.length - 1; i >= 0; i--) {
+                running[i].pause();
+            }
+            // Clear the running array
+            anime.running.length = 0;
+        }
+    }
+
+    /**
      * Stop playback and reset highlights
      */
     stopPlayback() {
         this.isPlaying = false;
+        
+        // Stop all anime.js animations
+        this.stopAllAnimations();
         
         if (this.animationFrameId) {
             clearTimeout(this.animationFrameId);

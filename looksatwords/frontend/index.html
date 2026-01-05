@@ -34,14 +34,27 @@ Example:
                 ></textarea>
             </div>
             <div class="control-buttons">
-                <button class="btn" onclick="analyzeThreads()" aria-label="Analyze conversation">
-                    Analyze Conversation
+                <button class="btn btn--sm btn--cyan" onclick="loadSampleConversation()" aria-label="Load sample conversation">
+                    📝 Sample
                 </button>
-                <button class="btn btn--secondary" onclick="resetVisualization()" aria-label="Reset visualization">
-                    Reset
+                <button class="btn btn--sm btn--purple" onclick="generateConversation()" aria-label="Generate conversation with AI">
+                    🤖 Generate
                 </button>
-                <button class="btn" onclick="loadSampleConversation()" aria-label="Load sample conversation">
-                    Load Sample
+                <button class="btn btn--sm btn--green" onclick="analyzeThreads()" aria-label="Analyze conversation">
+                    🔍 Analyze
+                </button>
+                <button class="btn btn--sm btn--orange" onclick="resetVisualization()" aria-label="Reset visualization">
+                    🔄 Reset
+                </button>
+                <div class="btn-divider"></div>
+                <button class="btn btn--sm btn--blue" onclick="showSavedConversations()" aria-label="Load from database">
+                    📂 Load
+                </button>
+                <button class="btn btn--sm btn--teal" onclick="exportDatabase()" aria-label="Export database">
+                    💾 Export
+                </button>
+                <button class="btn btn--sm btn--pink" onclick="importDatabase()" aria-label="Import database">
+                    📥 Import
                 </button>
             </div>
         </section>
@@ -49,20 +62,29 @@ Example:
         <!-- Playback Controls -->
         <section class="playback-controls">
             <button 
-                class="btn btn--secondary playback-btn" 
+                class="btn btn--sm btn--green playback-btn" 
                 onclick="playThreadEvolution()" 
                 id="playBtn"
                 aria-label="Play evolution"
             >
-                ▶ Play Evolution
+                ▶ Play
             </button>
             <button 
-                class="btn btn--secondary playback-btn" 
+                class="btn btn--sm btn--orange playback-btn" 
                 onclick="pausePlayback()" 
                 id="pauseBtn"
                 aria-label="Pause playback"
             >
                 ⏸ Pause
+            </button>
+            <div class="btn-divider"></div>
+            <button 
+                class="btn btn--sm btn--purple playback-btn" 
+                onclick="toggleViewMode()" 
+                id="viewToggleBtn"
+                aria-label="Toggle view mode"
+            >
+                📊 Topics
             </button>
             <div class="progress-container">
                 <span>Timeline:</span>
@@ -111,10 +133,7 @@ Example:
         </section>
     </div>
 
-    <!-- Modular JavaScript -->
-    <script type="module" src="js/app.js"></script>
-    
-    <!-- Fallback for non-module browsers -->
-    <script nomodule src="visualizer.js"></script>
+    <!-- Modular JavaScript (cache bust: v14) -->
+    <script type="module" src="js/app.js?v=14"></script>
 </body>
 </html>

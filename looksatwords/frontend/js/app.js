@@ -12,6 +12,7 @@ import { VisualizationRenderer } from './renderer.js';
 import { AnimationController } from './animation.js';
 import { AnalysisReporter } from './reporter.js';
 import { ApiClient, UIFeedback } from './api-client.js';
+import { AnalyticsPanel } from './analytics-panel.js';
 
 /**
  * Main application class
@@ -32,12 +33,15 @@ export class ConversationVisualizerApp {
         this.animator = new AnimationController(this.renderer);
         this.reporter = new AnalysisReporter(this.options.analysisId);
         this.apiClient = new ApiClient();
+        this.analyticsPanel = new AnalyticsPanel('analyticsPanel');
 
         // Data container
         this.data = new ConversationData();
 
         // State
         this.initialized = false;
+        this.viewMode = 'topics'; // 'topics' or 'speakers'
+        this.animationComplete = false; // Track if initial animation has run
     }
 
     /**
@@ -75,6 +79,13 @@ export class ConversationVisualizerApp {
      */
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (event) => {
+            // Backtick to toggle analytics panel (no modifier needed)
+            if (event.key === '`' && !event.ctrlKey && !event.metaKey) {
+                event.preventDefault();
+                this.toggleAnalyticsPanel();
+                return;
+            }
+            
             // Check for modifier key
             if (event.ctrlKey || event.metaKey) {
                 switch (event.key) {
@@ -100,6 +111,15 @@ export class ConversationVisualizerApp {
     }
 
     /**
+     * Toggle the analytics panel popup
+     */
+    toggleAnalyticsPanel() {
+        if (this.analyticsPanel) {
+            this.analyticsPanel.togglePopup();
+        }
+    }
+
+    /**
      * Set up window resize handler
      */
     setupResizeHandler() {
@@ -109,6 +129,10 @@ export class ConversationVisualizerApp {
             resizeTimeout = setTimeout(() => {
                 if (this.data.threads.length > 0) {
                     this.renderVisualization();
+                    // If animation already ran, show all nodes immediately
+                    if (this.animationComplete) {
+                        this.showAllNodesImmediately();
+                    }
                 }
             }, 100);
         });
@@ -153,8 +177,12 @@ export class ConversationVisualizerApp {
 
             // Animate appearance
             setTimeout(() => {
-                this.animator.setData(this.data.threads, this.data.tangents, this.data.totalDuration);
+                this.animator.setData(this.data.threads, this.data.tangents, this.data.totalDuration, this.viewMode);
                 this.animator.animateAppearance();
+                // Mark animation as complete after animations finish
+                setTimeout(() => {
+                    this.animationComplete = true;
+                }, 2500);
             }, 100);
 
             UIFeedback.showLoading(false);
@@ -173,7 +201,8 @@ export class ConversationVisualizerApp {
      * @param {string} text - Conversation text
      */
     async analyzeWithBackend(text) {
-        const response = await this.apiClient.analyzeConversation(text);
+        // Use the new endpoint that includes analytics
+        const response = await this.apiClient.analyzeWithAnalytics(text);
         
         this.data.conversationId = response.conversation_id;
         this.data.totalDuration = response.total_duration;
@@ -219,6 +248,17 @@ export class ConversationVisualizerApp {
             this.data.tangents.push(tangent);
         }
 
+        // Render analytics panel if analytics data is present
+        if (response.analytics || response.sentiment_timeline) {
+            this.analyticsPanel.toggle(true);
+            this.analyticsPanel.render({
+                aggregated: response.analytics,
+                sentiment_timeline: response.sentiment_timeline,
+                speaker_analytics: response.speaker_analytics,
+                nltk_available: true
+            });
+        }
+
         UIFeedback.showMessage(`✓ Saved (ID: ${response.conversation_id})`, 'success');
     }
 
@@ -249,8 +289,31 @@ export class ConversationVisualizerApp {
             this.data.threads,
             this.data.tangents,
             this.data.speakers,
-            this.data.totalDuration
+            this.data.totalDuration,
+            this.viewMode
         );
+    }
+
+    /**
+     * Show all nodes and paths immediately (skip animation)
+     * Used after initial animation has completed, for resize/toggle operations
+     */
+    showAllNodesImmediately() {
+        // Show all thread nodes
+        document.querySelectorAll('.thread-node').forEach(node => {
+            node.style.opacity = '1';
+            node.style.transform = 'scale(1)';
+        });
+        // Show all thread paths
+        document.querySelectorAll('.thread-path').forEach(path => {
+            path.style.opacity = '0.7';
+            path.style.strokeDashoffset = '0';
+        });
+        // Show all tangent arcs
+        document.querySelectorAll('.tangent-arc').forEach(path => {
+            path.style.opacity = '0.7';
+            path.style.strokeDashoffset = '0';
+        });
     }
 
     /**
@@ -270,6 +333,39 @@ export class ConversationVisualizerApp {
      */
     pause() {
         this.animator.pausePlayback();
+    }
+
+    /**
+     * Toggle view mode between topics and speakers
+     */
+    toggleViewMode() {
+        this.viewMode = this.viewMode === 'topics' ? 'speakers' : 'topics';
+        
+        // Stop any running animation
+        this.animator.stopPlayback();
+        
+        // Update button text
+        const btn = document.getElementById('viewToggleBtn');
+        if (btn) {
+            btn.innerHTML = this.viewMode === 'topics' ? '📊 Topics' : '👥 Speakers';
+        }
+        
+        // Re-render if we have data
+        if (this.data.threads.length > 0) {
+            this.renderer.render(
+                this.data.threads,
+                this.data.tangents,
+                this.data.speakers,
+                this.data.totalDuration,
+                this.viewMode
+            );
+            
+            // Show elements immediately since we're toggling (no animation needed)
+            if (this.viewMode === 'topics') {
+                this.showAllNodesImmediately();
+            }
+            // Speaker view nodes already have opacity: 1 in their inline styles
+        }
     }
 
     /**
@@ -295,6 +391,8 @@ export class ConversationVisualizerApp {
         this.data.clear();
         this.renderer.clear();
         this.reporter.clear();
+        this.analyticsPanel.clear();
+        this.analyticsPanel.toggle(false);
 
         // Reset progress bar
         const progressFill = document.getElementById('progressFill');
@@ -318,6 +416,277 @@ export class ConversationVisualizerApp {
             inputEl.value = CONFIG.sampleConversation;
             console.log('Sample conversation loaded');
         }
+    }
+
+    /**
+     * Generate a conversation using LLM
+     * @param {Object} options - Generation options
+     */
+    async generateConversation(options = {}) {
+        try {
+            UIFeedback.showLoading(true, 'Generating conversation with AI...');
+            
+            const result = await this.apiClient.generateConversation(options);
+            
+            const inputEl = document.getElementById(this.options.inputId);
+            if (inputEl) {
+                inputEl.value = result.text;
+            }
+            
+            UIFeedback.showLoading(false);
+            UIFeedback.showMessage(`✓ Generated conversation about: ${result.topic}`, 'success');
+            
+        } catch (error) {
+            UIFeedback.showLoading(false);
+            console.error('Generation failed:', error);
+            UIFeedback.showMessage(`Generation failed: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Show saved conversations modal
+     */
+    async showSavedConversations() {
+        try {
+            UIFeedback.showLoading(true, 'Loading saved conversations...');
+            
+            const conversations = await this.apiClient.listConversations();
+            
+            UIFeedback.showLoading(false);
+            
+            if (conversations.length === 0) {
+                UIFeedback.showMessage('No saved conversations found', 'info');
+                return;
+            }
+            
+            // Create modal
+            this.showConversationPickerModal(conversations);
+            
+        } catch (error) {
+            UIFeedback.showLoading(false);
+            console.error('Failed to load conversations:', error);
+            UIFeedback.showMessage(`Failed to load: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Show conversation picker modal
+     * @param {Array} conversations - List of conversations
+     */
+    showConversationPickerModal(conversations) {
+        // Remove existing modal if present
+        const existing = document.getElementById('conversationPickerModal');
+        if (existing) existing.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'conversationPickerModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 600px;
+            max-height: 70vh;
+            overflow-y: auto;
+            width: 90%;
+        `;
+        
+        content.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; color: #00d4ff;">📂 Saved Conversations</h3>
+                <button onclick="this.closest('#conversationPickerModal').remove()" 
+                        style="background: none; border: none; color: #888; font-size: 24px; cursor: pointer;">×</button>
+            </div>
+            <div id="conversationList" style="display: flex; flex-direction: column; gap: 8px;">
+                ${conversations.map(conv => `
+                    <div class="conversation-item" data-id="${conv.id}" style="
+                        background: rgba(0, 0, 0, 0.3);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        border-radius: 8px;
+                        padding: 12px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.borderColor='rgba(0, 212, 255, 0.5)'" 
+                       onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.1)'">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div style="color: #fff; font-weight: 600;">${conv.title}</div>
+                                <div style="color: #888; font-size: 12px; margin-top: 4px;">
+                                    ${conv.speaker_count} speakers • ${conv.thread_count} threads • ${formatTime(conv.total_duration)}
+                                </div>
+                                <div style="color: #666; font-size: 11px; margin-top: 2px;">
+                                    ${new Date(conv.created_at).toLocaleString()}
+                                </div>
+                            </div>
+                            <button onclick="event.stopPropagation(); window.deleteConversation(${conv.id})" 
+                                    style="background: none; border: none; color: #666; cursor: pointer; padding: 4px;"
+                                    title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        // Add click handlers for conversation items
+        content.querySelectorAll('.conversation-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = item.dataset.id;
+                this.loadConversation(id);
+                modal.remove();
+            });
+        });
+        
+        modal.appendChild(content);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        
+        document.body.appendChild(modal);
+    }
+
+    /**
+     * Load a conversation by ID
+     * @param {number} conversationId - Conversation ID
+     */
+    async loadConversation(conversationId) {
+        try {
+            UIFeedback.showLoading(true, 'Loading conversation...');
+            
+            const conversation = await this.apiClient.getConversation(conversationId);
+            
+            const inputEl = document.getElementById(this.options.inputId);
+            if (inputEl) {
+                inputEl.value = conversation.text;
+            }
+            
+            UIFeedback.showLoading(false);
+            UIFeedback.showMessage(`✓ Loaded: ${conversation.title}`, 'success');
+            
+        } catch (error) {
+            UIFeedback.showLoading(false);
+            console.error('Failed to load conversation:', error);
+            UIFeedback.showMessage(`Failed to load: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Delete a conversation
+     * @param {number} conversationId - Conversation ID
+     */
+    async deleteConversation(conversationId) {
+        if (!confirm('Are you sure you want to delete this conversation?')) {
+            return;
+        }
+        
+        try {
+            await this.apiClient.deleteConversation(conversationId);
+            
+            // Refresh the modal
+            const modal = document.getElementById('conversationPickerModal');
+            if (modal) {
+                modal.remove();
+                this.showSavedConversations();
+            }
+            
+            UIFeedback.showMessage('✓ Conversation deleted', 'success');
+            
+        } catch (error) {
+            console.error('Failed to delete conversation:', error);
+            UIFeedback.showMessage(`Failed to delete: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Export database to file
+     */
+    async exportDatabase() {
+        try {
+            UIFeedback.showLoading(true, 'Exporting database...');
+            
+            const data = await this.apiClient.exportDatabase();
+            
+            // Create download
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `looksatwords_export_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            UIFeedback.showLoading(false);
+            UIFeedback.showMessage(`✓ Exported ${data.conversations.length} conversations`, 'success');
+            
+        } catch (error) {
+            UIFeedback.showLoading(false);
+            console.error('Export failed:', error);
+            UIFeedback.showMessage(`Export failed: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Import database from file
+     */
+    async importDatabase() {
+        // Create file input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            try {
+                UIFeedback.showLoading(true, 'Reading file...');
+                
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                // Ask for import mode
+                const mode = confirm('Click OK to merge with existing data, or Cancel to replace all data') 
+                    ? 'merge' 
+                    : 'replace';
+                
+                if (mode === 'replace' && !confirm('This will DELETE all existing conversations. Are you sure?')) {
+                    UIFeedback.showLoading(false);
+                    return;
+                }
+                
+                UIFeedback.showLoading(true, 'Importing...');
+                
+                const result = await this.apiClient.importDatabase(data, mode);
+                
+                UIFeedback.showLoading(false);
+                UIFeedback.showMessage(
+                    `✓ Imported ${result.imported} conversations (${result.skipped} skipped)`, 
+                    'success'
+                );
+                
+            } catch (error) {
+                UIFeedback.showLoading(false);
+                console.error('Import failed:', error);
+                UIFeedback.showMessage(`Import failed: ${error.message}`, 'error');
+            }
+        };
+        
+        input.click();
     }
 
     /**
@@ -367,6 +736,30 @@ window.seekToPosition = function(event) {
 
 window.loadSampleConversation = function() {
     getApp().loadSample();
+};
+
+window.generateConversation = async function() {
+    await getApp().generateConversation();
+};
+
+window.showSavedConversations = async function() {
+    await getApp().showSavedConversations();
+};
+
+window.deleteConversation = async function(id) {
+    await getApp().deleteConversation(id);
+};
+
+window.exportDatabase = async function() {
+    await getApp().exportDatabase();
+};
+
+window.importDatabase = async function() {
+    await getApp().importDatabase();
+};
+
+window.toggleViewMode = function() {
+    getApp().toggleViewMode();
 };
 
 // Initialize when DOM is ready
