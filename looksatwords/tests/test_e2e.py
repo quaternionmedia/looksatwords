@@ -56,6 +56,8 @@ def browser_context():
     try:
         pw = sync_playwright().start()
         browser = pw.chromium.launch(headless=True)
+        # Set shorter default timeout for all operations
+        browser.set_default_timeout(5000)
         yield browser
         browser.close()
         pw.stop()
@@ -149,9 +151,9 @@ def test_frontend_elements_present(server_url, browser_context):
         # Check key elements exist
         assert page.locator("#textInput").is_visible(), "Text input should be visible"
         assert page.locator("#visualization").is_visible(), "Visualization area should be visible"
-        assert page.locator("button:has-text('Analyze Conversation')").is_visible(), "Analyze button should be visible"
+        assert page.locator("button:has-text('Analyze')").is_visible(), "Analyze button should be visible"
         assert page.locator("button:has-text('Reset')").is_visible(), "Reset button should be visible"
-        assert page.locator("button:has-text('Load Sample')").is_visible(), "Load Sample button should be visible"
+        assert page.locator("button:has-text('Sample')").is_visible(), "Sample button should be visible"
     finally:
         page.close()
 
@@ -204,15 +206,15 @@ def test_sample_conversation_load(server_url, browser_context):
     page = browser_context.new_page()
     
     try:
-        page.goto(f"{server_url}/")
-        page.wait_for_load_state("networkidle")
+        page.goto(f"{server_url}/", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=5000)
         
         # Textarea should initially be empty or have placeholder
         initial_value = page.input_value("#textInput")
         
         # Click load sample button
-        page.click("button:has-text('Load Sample')")
-        page.wait_for_timeout(500)
+        page.click("button:has-text('Sample')")
+        page.wait_for_timeout(300)
         
         # Check that textarea has content
         textarea_value = page.input_value("#textInput")
@@ -227,12 +229,12 @@ def test_reset_functionality(server_url, browser_context):
     page = browser_context.new_page()
     
     try:
-        page.goto(f"{server_url}/")
-        page.wait_for_load_state("networkidle")
+        page.goto(f"{server_url}/", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=5000)
         
         # Load sample first
-        page.click("button:has-text('Load Sample')")
-        page.wait_for_timeout(500)
+        page.click("button:has-text('Sample')")
+        page.wait_for_timeout(300)
         
         # Verify something is loaded
         textarea_value = page.input_value("#textInput")
@@ -240,7 +242,7 @@ def test_reset_functionality(server_url, browser_context):
         
         # Click reset
         page.click("button:has-text('Reset')")
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(300)
         
         # Check that textarea is cleared
         textarea_value = page.input_value("#textInput")
@@ -265,7 +267,7 @@ def test_conversation_analysis_basic(server_url, browser_context):
 [2:00] Alice: Interesting! Tell me more about it."""
         
         page.fill("#textInput", test_conversation)
-        page.click("button:has-text('Analyze Conversation')")
+        page.click("button:has-text('Analyze')")
         page.wait_for_timeout(2000)
         
         # Check that thread analysis appeared
@@ -291,12 +293,12 @@ def test_empty_conversation_handling(server_url, browser_context):
         page.fill("#textInput", "")
         
         # Try to analyze without entering text
-        page.click("button:has-text('Analyze Conversation')")
+        page.click("button:has-text('Analyze')")
         page.wait_for_timeout(1000)
         
         # Should handle gracefully (no crash, page still functional)
         assert page.locator("#textInput").is_visible(), "Page should remain functional"
-        assert page.locator("button:has-text('Analyze Conversation')").is_visible()
+        assert page.locator("button:has-text('Analyze')").is_visible()
     finally:
         page.close()
 
@@ -316,7 +318,7 @@ def test_conversation_speakers_detected(server_url, browser_context):
 [1:30] Alice: Nice to see you all."""
         
         page.fill("#textInput", test_conversation)
-        page.click("button:has-text('Analyze Conversation')")
+        page.click("button:has-text('Analyze')")
         page.wait_for_timeout(2000)
         
         # Check that visualization is visible
@@ -360,7 +362,7 @@ def test_playback_after_analysis(server_url, browser_context):
 [1:00] Alice: First item on the agenda."""
         
         page.fill("#textInput", test_conversation)
-        page.click("button:has-text('Analyze Conversation')")
+        page.click("button:has-text('Analyze')")
         page.wait_for_timeout(2000)
         
         # Try to play the visualization
@@ -398,7 +400,7 @@ def test_complex_conversation_analysis(server_url, browser_context):
 [4:00] Charlie: I know someone who might be interested in the position."""
         
         page.fill("#textInput", test_conversation)
-        page.click("button:has-text('Analyze Conversation')")
+        page.click("button:has-text('Analyze')")
         page.wait_for_timeout(3000)
         
         # Check that threads are detected
@@ -416,14 +418,14 @@ def test_conversation_with_tangents(server_url, browser_context):
     page = browser_context.new_page()
     
     try:
-        page.goto(f"{server_url}/")
-        page.wait_for_load_state("networkidle")
+        page.goto(f"{server_url}/", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=5000)
         
         # Load sample conversation which includes tangents
-        page.click("button:has-text('Load Sample')")
-        page.wait_for_timeout(500)
+        page.click("button:has-text('Sample')")
+        page.wait_for_timeout(300)
         
-        page.click("button:has-text('Analyze Conversation')")
+        page.click("button:has-text('Analyze')")
         page.wait_for_timeout(3000)
         
         # Check tangent legend is visible
@@ -493,3 +495,217 @@ def test_api_conversation_crud(server_url):
     # Verify deleted
     verify_response = requests.get(f"{server_url}/api/conversations/{conv_id}")
     assert verify_response.status_code == 404
+
+
+# =============================================================================
+# Analytics API Tests
+# =============================================================================
+
+def test_api_analyze_with_analytics(server_url):
+    """Test the analyze-with-analytics endpoint."""
+    test_data = {
+        "text": "[0:00] Alice: I am so happy today!\n[0:30] Bob: That's great news!",
+        "title": "Analytics Test"
+    }
+    
+    response = requests.post(
+        f"{server_url}/api/conversations/analyze-with-analytics",
+        json=test_data
+    )
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Check standard fields
+    assert "conversation_id" in data
+    assert data["title"] == "Analytics Test"
+    
+    # Check analytics fields
+    assert "analytics" in data
+    assert "sentiment_timeline" in data
+    assert "speaker_analytics" in data
+    
+    # Check aggregated analytics
+    analytics = data["analytics"]
+    assert "total_messages" in analytics
+    assert analytics["total_messages"] == 2
+    assert "average_sentiment" in analytics
+    assert "word_frequency" in analytics
+    assert "pos_distribution" in analytics
+    
+    # Check sentiment timeline
+    assert len(data["sentiment_timeline"]) == 2
+    
+    # Check speaker analytics
+    assert "Alice" in data["speaker_analytics"]
+    assert "Bob" in data["speaker_analytics"]
+    
+    # Clean up
+    requests.delete(f"{server_url}/api/conversations/{data['conversation_id']}")
+
+
+def test_api_get_conversation_analytics(server_url):
+    """Test the GET analytics endpoint."""
+    # First create a conversation
+    test_data = {
+        "text": "[0:00] Alice: Hello Bob!\n[0:30] Bob: Hi Alice!",
+        "title": "Get Analytics Test"
+    }
+    
+    create_response = requests.post(
+        f"{server_url}/api/conversations/analyze",
+        json=test_data
+    )
+    assert create_response.status_code == 200
+    conv_id = create_response.json()["conversation_id"]
+    
+    # Get analytics
+    analytics_response = requests.get(f"{server_url}/api/conversations/{conv_id}/analytics")
+    assert analytics_response.status_code == 200
+    data = analytics_response.json()
+    
+    # Verify structure
+    assert data["conversation_id"] == conv_id
+    assert "aggregated" in data
+    assert "sentiment_timeline" in data
+    assert "speaker_analytics" in data
+    assert "nltk_available" in data
+    
+    # Clean up
+    requests.delete(f"{server_url}/api/conversations/{conv_id}")
+
+
+def test_api_analytics_sentiment_detection(server_url):
+    """Test that sentiment is correctly detected."""
+    test_data = {
+        "text": "[0:00] Alice: This is absolutely wonderful and amazing!\n[0:30] Bob: This is terrible and awful.",
+        "title": "Sentiment Detection Test"
+    }
+    
+    response = requests.post(
+        f"{server_url}/api/conversations/analyze-with-analytics",
+        json=test_data
+    )
+    assert response.status_code == 200
+    data = response.json()
+    
+    timeline = data["sentiment_timeline"]
+    assert len(timeline) == 2
+    
+    # First message should be positive, second negative
+    assert timeline[0]["compound"] > 0, "Happy message should have positive sentiment"
+    assert timeline[1]["compound"] < 0, "Sad message should have negative sentiment"
+    
+    # Clean up
+    requests.delete(f"{server_url}/api/conversations/{data['conversation_id']}")
+
+
+# =============================================================================
+# Analytics Panel E2E Tests
+# =============================================================================
+
+def test_analytics_panel_appears_after_analysis(server_url, browser_context):
+    """Test that analytics panel appears after conversation analysis."""
+    page = browser_context.new_page()
+    
+    try:
+        page.goto(f"{server_url}/", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=5000)
+        
+        # Analytics panel should be hidden initially
+        analytics_panel = page.locator("#analyticsPanel")
+        assert not analytics_panel.is_visible() or analytics_panel.get_attribute("style") == "display: none;"
+        
+        # Load and analyze conversation
+        page.click("button:has-text('Sample')")
+        page.wait_for_timeout(300)
+        page.click("button:has-text('Analyze')")
+        page.wait_for_timeout(3000)
+        
+        # Analytics panel should now be visible
+        assert analytics_panel.is_visible(), "Analytics panel should appear after analysis"
+    finally:
+        page.close()
+
+
+def test_analytics_panel_shows_overview(server_url, browser_context):
+    """Test that analytics panel shows overview statistics."""
+    page = browser_context.new_page()
+    
+    try:
+        page.goto(f"{server_url}/", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=5000)
+        
+        # Analyze sample conversation
+        page.click("button:has-text('Sample')")
+        page.wait_for_timeout(300)
+        page.click("button:has-text('Analyze')")
+        page.wait_for_timeout(3000)
+        
+        # Check for analytics title
+        title = page.locator("#analyticsPanelTitle")
+        assert title.is_visible() or page.locator("text=Conversation Analytics").is_visible()
+        
+        # Check for overview card content
+        analytics_panel = page.locator("#analyticsPanel")
+        content = analytics_panel.inner_text()
+        
+        # Should contain stats like Messages, Words, Sentiment
+        assert "Messages" in content or "messages" in content
+    finally:
+        page.close()
+
+
+def test_analytics_panel_shows_speaker_analytics(server_url, browser_context):
+    """Test that analytics panel shows per-speaker analytics."""
+    page = browser_context.new_page()
+    
+    try:
+        page.goto(f"{server_url}/")
+        page.wait_for_load_state("networkidle")
+        
+        # Enter conversation with known speakers
+        test_conversation = """[0:00] Alice: Hello everyone!
+[0:30] Bob: Hi Alice!
+[1:00] Alice: How are you doing today?"""
+        
+        page.fill("#textInput", test_conversation)
+        page.click("button:has-text('Analyze')")
+        page.wait_for_timeout(3000)
+        
+        # Check for speaker analytics section
+        analytics_panel = page.locator("#analyticsPanel")
+        content = analytics_panel.inner_text()
+        
+        # Should mention the speakers
+        assert "Alice" in content, "Should show Alice's analytics"
+        assert "Bob" in content, "Should show Bob's analytics"
+    finally:
+        page.close()
+
+
+def test_analytics_panel_cleared_on_reset(server_url, browser_context):
+    """Test that analytics panel is cleared when reset is clicked."""
+    page = browser_context.new_page()
+    
+    try:
+        page.goto(f"{server_url}/", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=5000)
+        
+        # Analyze conversation first
+        page.click("button:has-text('Sample')")
+        page.wait_for_timeout(300)
+        page.click("button:has-text('Analyze')")
+        page.wait_for_timeout(3000)
+        
+        # Analytics panel should be visible
+        analytics_panel = page.locator("#analyticsPanel")
+        assert analytics_panel.is_visible(), "Analytics panel should be visible before reset"
+        
+        # Click reset
+        page.click("button:has-text('Reset')")
+        page.wait_for_timeout(300)
+        
+        # Analytics panel should be hidden
+        assert not analytics_panel.is_visible() or analytics_panel.inner_text().strip() == ""
+    finally:
+        page.close()

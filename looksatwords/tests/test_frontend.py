@@ -40,6 +40,7 @@ class TestFrontendStructure:
             'id="progressFill"',
             'id="timeDisplay"',
             'id="pathContainer"'
+            # Note: analyticsPanel is created dynamically by JavaScript
         ]
         for element in required_elements:
             assert element in frontend_html, f"Missing required element: {element}"
@@ -51,7 +52,11 @@ class TestFrontendStructure:
             'Play',
             'Pause',
             'Reset',
-            'Load Sample'
+            'Sample',
+            'Generate',
+            'Load',
+            'Export',
+            'Import'
         ]
         for button in buttons:
             assert button in frontend_html, f"Missing button: {button}"
@@ -66,10 +71,13 @@ class TestFrontendStructure:
         assert "playback-controls" in frontend_html or "control-buttons" in frontend_html
 
     def test_frontend_links_visualizer_js(self, frontend_html):
-        """Test that frontend links to visualizer.js."""
-        assert "visualizer.js" in frontend_html
+        """Test that frontend links to JavaScript (modular app.js or legacy visualizer.js)."""
+        # Check for either modular architecture (app.js) or legacy (visualizer.js)
+        has_modular = "app.js" in frontend_html
+        has_legacy = "visualizer.js" in frontend_html
+        assert has_modular or has_legacy, "No JavaScript entry point found"
         # Check for script tag
-        assert "<script" in frontend_html and "visualizer.js" in frontend_html
+        assert "<script" in frontend_html
 
     def test_frontend_includes_anime_library(self, frontend_html):
         """Test that frontend includes Anime.js library for animations."""
@@ -741,3 +749,79 @@ class TestVisualizerCSS:
     def test_has_animation_keyframes(self, visualizer_css):
         """Test that CSS has animation keyframes."""
         assert "@keyframes" in visualizer_css or "animation" in visualizer_css
+
+    def test_has_analytics_panel_styles(self, visualizer_css):
+        """Test that CSS has analytics panel styles."""
+        assert "#analyticsPanel" in visualizer_css or ".analytics-panel" in visualizer_css
+
+    def test_has_speaker_card_styles(self, visualizer_css):
+        """Test that CSS has speaker analytics card styles."""
+        assert ".speaker-card" in visualizer_css
+
+    def test_has_word_frequency_styles(self, visualizer_css):
+        """Test that CSS has word frequency styles."""
+        assert ".word-freq" in visualizer_css or ".word-bar" in visualizer_css
+
+    def test_has_pos_distribution_styles(self, visualizer_css):
+        """Test that CSS has POS distribution styles."""
+        assert ".pos-grid" in visualizer_css or ".pos-item" in visualizer_css
+
+
+class TestAnalyticsPanelModule:
+    """Test the analytics-panel.js module."""
+
+    @pytest.fixture
+    def analytics_panel_js(self):
+        """Load analytics-panel.js content."""
+        path = Path(__file__).parent.parent / "frontend" / "js" / "analytics-panel.js"
+        with open(path, 'r', encoding='utf-8') as f:
+            return f.read()
+
+    def test_exports_analytics_panel(self, analytics_panel_js):
+        """Test that module exports AnalyticsPanel class."""
+        assert "export class AnalyticsPanel" in analytics_panel_js
+
+    def test_has_render_method(self, analytics_panel_js):
+        """Test that AnalyticsPanel has render method."""
+        assert "render(" in analytics_panel_js
+
+    def test_has_clear_method(self, analytics_panel_js):
+        """Test that AnalyticsPanel has clear method."""
+        assert "clear(" in analytics_panel_js
+
+    def test_has_toggle_method(self, analytics_panel_js):
+        """Test that AnalyticsPanel has toggle method."""
+        assert "toggle(" in analytics_panel_js
+
+    def test_has_overview_card_renderer(self, analytics_panel_js):
+        """Test that AnalyticsPanel has renderOverviewCard method."""
+        assert "renderOverviewCard(" in analytics_panel_js
+
+    def test_has_sentiment_chart_renderer(self, analytics_panel_js):
+        """Test that AnalyticsPanel has renderSentimentChart method."""
+        assert "renderSentimentChart(" in analytics_panel_js
+
+    def test_has_word_frequency_renderer(self, analytics_panel_js):
+        """Test that AnalyticsPanel has renderWordFrequency method."""
+        assert "renderWordFrequency(" in analytics_panel_js
+
+    def test_has_pos_distribution_renderer(self, analytics_panel_js):
+        """Test that AnalyticsPanel has renderPOSDistribution method."""
+        assert "renderPOSDistribution(" in analytics_panel_js
+
+    def test_has_speaker_analytics_renderer(self, analytics_panel_js):
+        """Test that AnalyticsPanel has renderSpeakerAnalytics method."""
+        assert "renderSpeakerAnalytics(" in analytics_panel_js
+
+    def test_has_sentiment_helpers(self, analytics_panel_js):
+        """Test that AnalyticsPanel has sentiment helper methods."""
+        assert "getSentimentColor(" in analytics_panel_js
+        assert "getSentimentEmoji(" in analytics_panel_js
+
+    def test_imports_config(self, analytics_panel_js):
+        """Test that module imports config."""
+        assert "config.js" in analytics_panel_js
+
+    def test_uses_svg_for_chart(self, analytics_panel_js):
+        """Test that sentiment chart uses SVG."""
+        assert "<svg" in analytics_panel_js or "svg" in analytics_panel_js.lower()
