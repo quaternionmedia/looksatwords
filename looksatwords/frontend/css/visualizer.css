@@ -69,7 +69,14 @@ body {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
-    flex-direction: column;
+    align-items: center;
+}
+
+.btn-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-color);
+    margin: 0 4px;
 }
 
 /* ===== FORM COMPONENTS ===== */
@@ -127,6 +134,62 @@ body {
     box-shadow: 0 4px 15px rgba(255, 0, 255, 0.4);
 }
 
+/* Small button variant */
+.btn--sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* Spectrum color variants */
+.btn--cyan {
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
+}
+.btn--cyan:hover {
+    box-shadow: 0 3px 12px rgba(0, 212, 255, 0.5);
+}
+
+.btn--purple {
+    background: linear-gradient(135deg, #a855f7, #7c3aed);
+}
+.btn--purple:hover {
+    box-shadow: 0 3px 12px rgba(168, 85, 247, 0.5);
+}
+
+.btn--green {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+.btn--green:hover {
+    box-shadow: 0 3px 12px rgba(34, 197, 94, 0.5);
+}
+
+.btn--orange {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+}
+.btn--orange:hover {
+    box-shadow: 0 3px 12px rgba(249, 115, 22, 0.5);
+}
+
+.btn--blue {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+.btn--blue:hover {
+    box-shadow: 0 3px 12px rgba(59, 130, 246, 0.5);
+}
+
+.btn--teal {
+    background: linear-gradient(135deg, #14b8a6, #0d9488);
+}
+.btn--teal:hover {
+    box-shadow: 0 3px 12px rgba(20, 184, 166, 0.5);
+}
+
+.btn--pink {
+    background: linear-gradient(135deg, #ec4899, #db2777);
+}
+.btn--pink:hover {
+    box-shadow: 0 3px 12px rgba(236, 72, 153, 0.5);
+}
+
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -177,8 +240,8 @@ body {
 }
 
 .playback-btn {
-    min-width: 120px;
-    padding: 10px 20px;
+    min-width: 80px;
+    padding: 6px 12px;
 }
 
 /* ===== VISUALIZATION CANVAS ===== */
@@ -396,6 +459,262 @@ body {
     align-items: center;
     gap: 8px;
     font-size: 12px;
+}
+
+/* ===== ANALYTICS PANEL ===== */
+#analyticsPanel {
+    margin-top: 20px;
+}
+
+#analyticsPanel h3 {
+    margin-bottom: 10px;
+    color: var(--accent-blue);
+}
+
+#analyticsPanel h4 {
+    margin: 20px 0 15px 0;
+    color: var(--text-primary);
+}
+
+.analytics-status {
+    font-size: 12px;
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+
+.analytics-main-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* Overview Card */
+.analytics-overview .overview-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.analytics-overview .stat-item {
+    text-align: center;
+}
+
+.analytics-overview .stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--accent-blue);
+}
+
+.analytics-overview .stat-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.sentiment-score {
+    font-size: 13px;
+    text-align: center;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.sentiment-breakdown {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 5px;
+    font-size: 12px;
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+/* Sentiment Chart */
+.analytics-sentiment-chart .chart-container {
+    margin: 10px 0;
+}
+
+.sentiment-svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.sentiment-point {
+    transition: r 0.2s ease;
+    cursor: pointer;
+}
+
+.sentiment-point:hover {
+    r: 6;
+}
+
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 11px;
+    margin-top: 10px;
+}
+
+.legend-item {
+    padding: 2px 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+}
+
+/* Word Frequency */
+.word-freq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.word-freq-item {
+    display: grid;
+    grid-template-columns: 80px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+}
+
+.word-label {
+    font-weight: bold;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.word-bar-container {
+    height: 16px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.word-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.word-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+/* POS Distribution */
+.pos-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.pos-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+}
+
+.pos-emoji {
+    font-size: 18px;
+}
+
+.pos-name {
+    font-weight: bold;
+    font-size: 12px;
+    text-transform: capitalize;
+}
+
+.pos-count {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-left: auto;
+}
+
+/* Speaker Analytics */
+.analytics-speakers-section {
+    margin-top: 20px;
+}
+
+.speaker-analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.speaker-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 15px;
+    border-left: 4px solid;
+    transition: transform 0.2s ease;
+}
+
+.speaker-card:hover {
+    transform: translateY(-2px);
+}
+
+.speaker-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.speaker-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    color: white;
+}
+
+.speaker-name {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.speaker-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.speaker-stat {
+    text-align: center;
+}
+
+.speaker-stat .stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.speaker-stat .stat-label {
+    display: block;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.speaker-sentiment {
+    font-size: 12px;
+    text-align: center;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 /* ===== UTILITY CLASSES ===== */

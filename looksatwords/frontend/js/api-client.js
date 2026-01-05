@@ -130,6 +130,188 @@ export class ApiClient {
 
         return await response.json();
     }
+
+    /**
+     * Get analytics for a conversation
+     * @param {number} conversationId - Conversation ID
+     * @returns {Promise<Object>} Analytics data including sentiment, word frequency, POS distribution
+     */
+    async getConversationAnalytics(conversationId) {
+        const response = await fetch(
+            `${this.baseUrl}/conversations/${conversationId}/analytics`,
+            {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Failed to get analytics: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Analyze conversation with full analytics included in response
+     * @param {string} text - Conversation text
+     * @param {string} [title] - Optional title
+     * @returns {Promise<Object>} Analysis response with analytics
+     */
+    async analyzeWithAnalytics(text, title = null) {
+        if (!this.isAvailable) {
+            await this.checkHealth();
+        }
+
+        if (!this.isAvailable) {
+            throw new Error('Backend API not available');
+        }
+
+        const response = await fetch(`${this.baseUrl}/conversations/analyze-with-analytics`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                title: title || `Conversation from ${new Date().toLocaleString()}`
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API error: ${response.status} - ${errorText}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Extract topics dynamically from conversation text
+     * @param {string} text - Conversation text
+     * @returns {Promise<Object>} Extracted topics with keywords and scores
+     */
+    async extractTopics(text) {
+        if (!this.isAvailable) {
+            await this.checkHealth();
+        }
+
+        if (!this.isAvailable) {
+            throw new Error('Backend API not available');
+        }
+
+        const response = await fetch(`${this.baseUrl}/extract-topics`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API error: ${response.status} - ${errorText}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Generate a conversation using LLM
+     * @param {Object} options - Generation options
+     * @param {string} [options.topic] - Topic for conversation (optional, will be generated)
+     * @param {number} [options.numSpeakers=2] - Number of speakers
+     * @param {number} [options.numMessages=8] - Number of messages
+     * @param {string[]} [options.speakerNames] - Custom speaker names
+     * @returns {Promise<Object>} Generated conversation
+     */
+    async generateConversation(options = {}) {
+        if (!this.isAvailable) {
+            await this.checkHealth();
+        }
+
+        if (!this.isAvailable) {
+            throw new Error('Backend API not available');
+        }
+
+        const response = await fetch(`${this.baseUrl}/generate-conversation`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                topic: options.topic || null,
+                num_speakers: options.numSpeakers || 2,
+                num_messages: options.numMessages || 8,
+                speaker_names: options.speakerNames || null
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API error: ${response.status} - ${errorText}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Export database as JSON
+     * @returns {Promise<Object>} Export data
+     */
+    async exportDatabase() {
+        if (!this.isAvailable) {
+            await this.checkHealth();
+        }
+
+        if (!this.isAvailable) {
+            throw new Error('Backend API not available');
+        }
+
+        const response = await fetch(`${this.baseUrl}/database/export`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to export database: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Import database from JSON
+     * @param {Object} data - Export data to import
+     * @param {string} [mode='merge'] - Import mode: 'merge' or 'replace'
+     * @returns {Promise<Object>} Import result
+     */
+    async importDatabase(data, mode = 'merge') {
+        if (!this.isAvailable) {
+            await this.checkHealth();
+        }
+
+        if (!this.isAvailable) {
+            throw new Error('Backend API not available');
+        }
+
+        const response = await fetch(`${this.baseUrl}/database/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data, mode })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to import database: ${response.status} - ${errorText}`);
+        }
+
+        return await response.json();
+    }
 }
 
 /**
