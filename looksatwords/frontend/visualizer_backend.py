@@ -1,7 +1,7 @@
 """Backend version of ThreadVisualizer for API usage.
 
 Integrates with NLTK-based analyzer for enhanced text analysis including
-sentiment detection and grammar analysis.
+sentiment detection, grammar analysis, and dynamic topic extraction.
 """
 
 import re
@@ -16,22 +16,30 @@ try:
 except ImportError:
     NLTK_AVAILABLE = False
 
+# Import dynamic topic extractor
+try:
+    from looksatwords.app.topic_service import get_topic_extractor, TopicExtractor
+    TOPIC_EXTRACTOR_AVAILABLE = True
+except ImportError:
+    TOPIC_EXTRACTOR_AVAILABLE = False
+
 
 class ThreadVisualizerBackend:
     """Backend thread visualization engine (without DOM/animation).
     
     This class analyzes conversation text to identify:
     - Speakers and their contributions
-    - Topic threads based on keyword matching
+    - Topic threads using dynamic NLTK-based extraction
     - Tangents (off-topic digressions) and their resolution
     - Optional: Sentiment analysis via NLTK
     """
     
-    def __init__(self, use_nltk: bool = True):
+    def __init__(self, use_nltk: bool = True, use_dynamic_topics: bool = True):
         """Initialize the visualizer backend.
         
         Args:
             use_nltk: Whether to use NLTK for enhanced analysis (if available)
+            use_dynamic_topics: Whether to use dynamic topic extraction (if available)
         """
         self.threads: List[Dict] = []
         self.tangents: List[Dict] = []
@@ -39,6 +47,8 @@ class ThreadVisualizerBackend:
         self.totalDuration: float = 0
         self.speakers: Dict[str, Dict] = {}
         self.use_nltk = use_nltk and NLTK_AVAILABLE
+        self.use_dynamic_topics = use_dynamic_topics and TOPIC_EXTRACTOR_AVAILABLE
+        self.extracted_topics: List[Dict] = []  # Store extracted topics
         
         # Initialize NLTK sentiment analyzer if available
         self._sia = None
@@ -47,6 +57,14 @@ class ThreadVisualizerBackend:
                 self._sia = SentimentIntensityAnalyzer()
             except Exception:
                 self._sia = None
+        
+        # Initialize topic extractor
+        self._topic_extractor = None
+        if self.use_dynamic_topics:
+            try:
+                self._topic_extractor = get_topic_extractor()
+            except Exception:
+                self._topic_extractor = None
 
         self.threadColors = [
             '#00d4ff', '#ff6b6b', '#00ff88', '#ffd93d', '#ff8cc8',
@@ -58,6 +76,7 @@ class ThreadVisualizerBackend:
             '#a8e6cf', '#ffd3a5', '#fd6c9e', '#c1a1d3', '#84fab0'
         ]
 
+        # Fallback static keywords (used when dynamic extraction not available)
         self.topicKeywords = {
             'marketing': ['marketing', 'promotion', 'advertising', 'campaign', 'brand'],
             'technology': ['tech', 'digital', 'software', 'system', 'platform', 'online'],
@@ -78,6 +97,9 @@ class ThreadVisualizerBackend:
             'back to', 'returning to', 'anyway', 'so back to', 'as we were saying',
             'getting back', 'to return', 'where were we', "let's get back"
         ]
+        
+        # Store raw text for dynamic analysis
+        self._raw_text = ""
 
     def parseConversation(self, text: str) -> List[Dict]:
         """Parse conversation text into time points.
@@ -88,6 +110,7 @@ class ThreadVisualizerBackend:
         Returns:
             List of parsed time points with metadata
         """
+        self._raw_text = text  # Store for dynamic topic extraction
         lines = text.split('\n')
         timePoints = []
         self.speakers.clear()
@@ -149,9 +172,94 @@ class ThreadVisualizerBackend:
     def identifyThreads(self) -> List[Dict]:
         """Identify conversation threads by topic.
         
+        Uses dynamic NLTK-based topic extraction when available,
+        falls back to static keyword matching otherwise.
+        
         Returns:
             List of identified threads sorted by total intensity
         """
+        # Try dynamic topic extraction first
+        if self._topic_extractor and self._raw_text:
+            return self._identifyThreadsDynamic()
+        
+        # Fall back to static keyword matching
+        return self._identifyThreadsStatic()
+    
+    def _identifyThreadsDynamic(self) -> List[Dict]:
+        """Identify threads using dynamic NLTK topic extraction."""
+        # Extract topics from the full conversation
+        self.extracted_topics = self._topic_extractor.extract_topics(
+            self._raw_text,
+            max_topics=8,
+            min_occurrences=1
+        )
+        
+        if not self.extracted_topics:
+            # Fall back to static if no topics found
+            return self._identifyThreadsStatic()
+        
+        # Build keyword lookup from extracted topics
+        topic_keywords = {}
+        for topic in self.extracted_topics:
+            topic_name = topic['name']
+            keywords = topic.get('keywords', [topic_name.lower()])
+            topic_keywords[topic_name] = [kw.lower() for kw in keywords]
+        
+        threads: Dict[str, Dict] = {}
+        
+        for point in self.timePoints:
+            text_lower = point['text']
+            
+            for topic_name, keywords in topic_keywords.items():
+                relevance = sum(1 for kw in keywords if kw in text_lower)
+                
+                # Also check for partial matches
+                words = text_lower.split()
+                for word in words:
+                    for kw in keywords:
+                        if len(kw) > 3 and (kw in word or word in kw):
+                            relevance += 0.5
+                
+                if relevance > 0:
+                    if topic_name not in threads:
+                        threads[topic_name] = {
+                            'name': topic_name,
+                            'points': [],
+                            'color': self.threadColors[len(threads) % len(self.threadColors)],
+                            'totalIntensity': 0,
+                            'keywords': keywords,
+                            'extracted': True  # Mark as dynamically extracted
+                        }
+                    
+                    thread = threads[topic_name]
+                    intensity = min(1.0, relevance * 0.3 + 0.2)
+                    
+                    point_data = {
+                        'time': point['time'],
+                        'intensity': intensity,
+                        'text': point['originalLine'],
+                        'speaker': point['speaker'],
+                        'speakerInfo': point['speakerInfo']
+                    }
+                    
+                    if point.get('sentiment'):
+                        point_data['sentiment'] = point['sentiment']
+                    
+                    thread['points'].append(point_data)
+                    thread['totalIntensity'] += intensity
+        
+        # Filter and sort threads
+        self.threads = sorted(
+            [t for t in threads.values() if len(t['points']) >= 1],
+            key=lambda t: t['totalIntensity'],
+            reverse=True
+        )[:8]
+        
+        self.detectTangents()
+        return self.threads
+    
+    def _identifyThreadsStatic(self) -> List[Dict]:
+        """Identify threads using static keyword matching (fallback)."""
         threads: Dict[str, Dict] = {}
         
         for point in self.timePoints:
@@ -193,6 +301,14 @@ class ThreadVisualizerBackend:
         
         self.detectTangents()
         return self.threads
+
+    def getExtractedTopics(self) -> List[Dict]:
+        """Get the dynamically extracted topics.
+        
+        Returns:
+            List of extracted topic dictionaries with name, keywords, and score
+        """
+        return self.extracted_topics
 
     def detectTangents(self) -> List[Dict]:
         """Detect conversation tangents.
@@ -303,5 +419,7 @@ class ThreadVisualizerBackend:
             'resolution_rate': (resolved_count / total_tangents * 100) if total_tangents > 0 else 0,
             'total_duration': self.totalDuration,
             'time_point_count': len(self.timePoints),
-            'nltk_enabled': self.use_nltk
+            'nltk_enabled': self.use_nltk,
+            'dynamic_topics_enabled': self.use_dynamic_topics and self._topic_extractor is not None,
+            'extracted_topics': self.extracted_topics
         }

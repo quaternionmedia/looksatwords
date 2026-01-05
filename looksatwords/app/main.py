@@ -1,14 +1,16 @@
 """FastAPI application for conversation thread visualization."""
 
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from .database import create_db_and_tables, get_session
@@ -17,7 +19,17 @@ from .models import (
     ConversationCreate,
     ConversationListItem,
     ConversationResponse,
+    ConversationWithAnalyticsResponse,
+    AnalyticsResponse,
+    AggregatedAnalytics,
+    SentimentScore,
+    WordFrequencyItem,
+    SentimentTimelinePoint,
+    ExtractedTopic,
+    TopicsResponse,
 )
+from .analytics_service import get_analytics_service
+from .topic_service import get_topic_extractor
 
 # Import backend visualizer for analysis
 import sys
@@ -175,6 +187,380 @@ def delete_conversation(
     session.commit()
     
     return {"status": "ok", "message": f"Conversation {conversation_id} deleted"}
+
+
+@app.post("/api/extract-topics", response_model=TopicsResponse)
+def extract_topics(request: ConversationCreate):
+    """Extract topics dynamically from conversation text using NLTK.
+    
+    Uses noun phrase extraction, TF-IDF scoring, collocation detection,
+    and named entity recognition to identify topics.
+    """
+    topic_extractor = get_topic_extractor()
+    topics = topic_extractor.extract_topics(
+        request.text,
+        max_topics=8,
+        min_occurrences=1
+    )
+    
+    return TopicsResponse(
+        topics=[
+            ExtractedTopic(
+                name=t["name"],
+                keywords=t["keywords"],
+                score=t["score"],
+                normalized_score=t.get("normalized_score", 0),
+                sources=t.get("sources", [])
+            )
+            for t in topics
+        ],
+        dynamic_extraction=True,
+        topic_count=len(topics)
+    )
+
+
+@app.get("/api/conversations/{conversation_id}/analytics", response_model=AnalyticsResponse)
+def get_conversation_analytics(
+    conversation_id: int,
+    session: Session = Depends(get_session)
+):
+    """Get detailed analytics for a conversation.
+    
+    Returns sentiment analysis, word frequency, POS distribution,
+    and per-speaker analytics using NLTK.
+    """
+    conversation = session.get(Conversation, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    # Re-parse the conversation to get time points
+    visualizer = ThreadVisualizerBackend(use_nltk=False)  # We'll use our own NLTK analysis
+    time_points = visualizer.parseConversation(conversation.text)
+    
+    # Run analytics
+    analytics_service = get_analytics_service()
+    analytics = analytics_service.analyze_conversation(time_points)
+    
+    # Build response
+    aggregated = analytics["aggregated"]
+    
+    return AnalyticsResponse(
+        conversation_id=conversation_id,
+        aggregated=AggregatedAnalytics(
+            total_messages=aggregated["total_messages"],
+            total_words=aggregated["total_words"],
+            average_words_per_message=aggregated["average_words_per_message"],
+            average_sentiment=SentimentScore(**aggregated["average_sentiment"]),
+            overall_sentiment=aggregated["overall_sentiment"],
+            word_frequency=[
+                WordFrequencyItem(word=wf["word"], count=wf["count"])
+                for wf in aggregated["word_frequency"]
+            ],
+            pos_distribution=aggregated["pos_distribution"],
+        ),
+        sentiment_timeline=[
+            SentimentTimelinePoint(
+                time=st["time"],
+                compound=st["compound"],
+                positive=st["positive"],
+                negative=st["negative"],
+                neutral=st["neutral"],
+                speaker=st["speaker"],
+            )
+            for st in analytics["sentiment_timeline"]
+        ],
+        speaker_analytics=analytics["speaker_analytics"],
+        nltk_available=analytics["nltk_available"],
+    )
+
+
+@app.post("/api/conversations/analyze-with-analytics", response_model=ConversationWithAnalyticsResponse)
+def analyze_conversation_with_analytics(
+    request: ConversationCreate,
+    session: Session = Depends(get_session)
+):
+    """Analyze a conversation with full NLTK analytics included.
+    
+    This endpoint combines thread/tangent analysis with sentiment,
+    word frequency, and grammar analytics in a single response.
+    """
+    # Use backend visualizer for thread analysis
+    visualizer = ThreadVisualizerBackend(use_nltk=False)
+    time_points = visualizer.parseConversation(request.text)
+    visualizer.identifyThreads()
+    
+    # Run NLTK analytics
+    analytics_service = get_analytics_service()
+    analytics = analytics_service.analyze_conversation(time_points)
+    
+    # Create title if not provided
+    title = request.title or f"Conversation {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    
+    # Prepare thread data for storage
+    threads_data = []
+    for thread in visualizer.threads:
+        threads_data.append({
+            "name": thread["name"],
+            "color": thread["color"],
+            "points": thread["points"],
+            "total_intensity": thread["totalIntensity"]
+        })
+    
+    # Prepare tangent data for storage
+    tangents_data = []
+    for tangent in visualizer.tangents:
+        tangents_data.append({
+            "start_time": tangent["startTime"],
+            "end_time": tangent["endTime"],
+            "tangent_type": tangent["type"],
+            "topics": tangent["topics"],
+            "start_text": tangent["startText"],
+            "resolution_text": tangent.get("resolutionText")
+        })
+    
+    # Create conversation record
+    conversation = Conversation(
+        title=title,
+        text=request.text,
+        total_duration=visualizer.totalDuration,
+        speakers=visualizer.speakers,
+        threads=threads_data,
+        tangents=tangents_data
+    )
+    
+    session.add(conversation)
+    session.commit()
+    session.refresh(conversation)
+    
+    # Build aggregated analytics response
+    aggregated = analytics["aggregated"]
+    
+    return ConversationWithAnalyticsResponse(
+        conversation_id=conversation.id,
+        title=conversation.title,
+        total_duration=conversation.total_duration,
+        speakers=conversation.speakers,
+        threads=conversation.threads,
+        tangents=conversation.tangents,
+        analytics=AggregatedAnalytics(
+            total_messages=aggregated["total_messages"],
+            total_words=aggregated["total_words"],
+            average_words_per_message=aggregated["average_words_per_message"],
+            average_sentiment=SentimentScore(**aggregated["average_sentiment"]),
+            overall_sentiment=aggregated["overall_sentiment"],
+            word_frequency=[
+                WordFrequencyItem(word=wf["word"], count=wf["count"])
+                for wf in aggregated["word_frequency"]
+            ],
+            pos_distribution=aggregated["pos_distribution"],
+        ),
+        sentiment_timeline=[
+            SentimentTimelinePoint(
+                time=st["time"],
+                compound=st["compound"],
+                positive=st["positive"],
+                negative=st["negative"],
+                neutral=st["neutral"],
+                speaker=st["speaker"],
+            )
+            for st in analytics["sentiment_timeline"]
+        ],
+        speaker_analytics=analytics["speaker_analytics"],
+    )
+
+
+# ============ LLM Generation Endpoints ============
+
+class GenerateConversationRequest(BaseModel):
+    """Request model for generating conversations."""
+    topic: Optional[str] = None
+    num_speakers: int = 2
+    num_messages: int = 8
+    speaker_names: Optional[List[str]] = None
+
+
+class GenerateConversationResponse(BaseModel):
+    """Response model for generated conversations."""
+    text: str
+    topic: str
+    speakers: List[str]
+
+
+@app.post("/api/generate-conversation", response_model=GenerateConversationResponse)
+def generate_conversation(request: GenerateConversationRequest):
+    """Generate a sample conversation using the LLM.
+    
+    Uses Ollama/llama3.1 to generate a realistic conversation
+    on a given topic with specified speakers.
+    """
+    try:
+        import ollama
+        
+        client = ollama.Client(host="http://localhost:11434")
+        
+        # Default speaker names
+        speakers = request.speaker_names or ["Alice", "Bob", "Carol", "Dave"][:request.num_speakers]
+        speaker_list = ", ".join(speakers[:request.num_speakers])
+        
+        # Generate topic if not provided
+        topic = request.topic
+        if not topic:
+            topic_response = client.chat(
+                model="llama3.1",
+                messages=[
+                    {"role": "system", "content": "Generate a single interesting conversation topic in 3-5 words. Just the topic, nothing else."},
+                    {"role": "user", "content": "Give me a random interesting topic for a conversation."}
+                ]
+            )
+            topic = topic_response["message"]["content"].strip().strip('"')
+        
+        # Build the conversation generation prompt
+        prompt = f"""Generate a realistic conversation between {speaker_list} about: {topic}
+
+Requirements:
+- Exactly {request.num_messages} messages
+- Use this exact format for each line: [MM:SS] Speaker: message
+- Start at [00:00] and increment by 15-45 seconds each message
+- Make it natural with agreements, disagreements, questions, and tangents
+- Each message should be 1-3 sentences
+- Include some emotional moments (excitement, concern, humor)
+
+Generate only the conversation, no explanations or headers."""
+
+        response = client.chat(
+            model="llama3.1",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "You are a conversation script writer. Generate realistic, natural dialogues. Output only the conversation in the exact format requested."
+                },
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        conversation_text = response["message"]["content"].strip()
+        
+        return GenerateConversationResponse(
+            text=conversation_text,
+            topic=topic,
+            speakers=speakers[:request.num_speakers]
+        )
+        
+    except ImportError:
+        raise HTTPException(
+            status_code=503, 
+            detail="Ollama package not installed. Install with: pip install ollama"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"LLM service unavailable: {str(e)}. Make sure Ollama is running."
+        )
+
+
+# ============ Database Export/Import Endpoints ============
+
+@app.get("/api/database/export")
+def export_database(session: Session = Depends(get_session)):
+    """Export all conversations as JSON.
+    
+    Returns a JSON file containing all stored conversations
+    that can be imported later.
+    """
+    conversations = session.exec(select(Conversation)).all()
+    
+    export_data = {
+        "version": "1.0",
+        "exported_at": datetime.now().isoformat(),
+        "conversations": [
+            {
+                "id": conv.id,
+                "title": conv.title,
+                "text": conv.text,
+                "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "total_duration": conv.total_duration,
+                "speakers": conv.speakers,
+                "threads": conv.threads,
+                "tangents": conv.tangents,
+            }
+            for conv in conversations
+        ]
+    }
+    
+    return JSONResponse(
+        content=export_data,
+        headers={
+            "Content-Disposition": f"attachment; filename=looksatwords_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        }
+    )
+
+
+class ImportDatabaseRequest(BaseModel):
+    """Request model for importing database."""
+    data: dict
+    mode: str = "merge"  # "merge" or "replace"
+
+
+@app.post("/api/database/import")
+def import_database(
+    request: ImportDatabaseRequest,
+    session: Session = Depends(get_session)
+):
+    """Import conversations from JSON export.
+    
+    Modes:
+    - merge: Add new conversations, skip existing IDs
+    - replace: Clear all existing data and import fresh
+    """
+    data = request.data
+    
+    if "conversations" not in data:
+        raise HTTPException(status_code=400, detail="Invalid export format: missing 'conversations' key")
+    
+    if request.mode == "replace":
+        # Delete all existing conversations
+        existing = session.exec(select(Conversation)).all()
+        for conv in existing:
+            session.delete(conv)
+        session.commit()
+    
+    imported_count = 0
+    skipped_count = 0
+    
+    for conv_data in data["conversations"]:
+        # Check if conversation already exists (by ID or title+text hash)
+        if request.mode == "merge":
+            existing = session.exec(
+                select(Conversation).where(
+                    (Conversation.title == conv_data["title"]) & 
+                    (Conversation.text == conv_data["text"])
+                )
+            ).first()
+            if existing:
+                skipped_count += 1
+                continue
+        
+        # Create new conversation
+        conversation = Conversation(
+            title=conv_data["title"],
+            text=conv_data["text"],
+            total_duration=conv_data.get("total_duration", 0),
+            speakers=conv_data.get("speakers", {}),
+            threads=conv_data.get("threads", []),
+            tangents=conv_data.get("tangents", []),
+        )
+        
+        session.add(conversation)
+        imported_count += 1
+    
+    session.commit()
+    
+    return {
+        "status": "ok",
+        "imported": imported_count,
+        "skipped": skipped_count,
+        "mode": request.mode
+    }
 
 
 # Mount static files for frontend assets (css/, js/, etc.)
