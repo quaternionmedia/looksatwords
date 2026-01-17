@@ -30,11 +30,16 @@ uv run looksatwords serve
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | `GET` | `/health` | Health check |
-| `POST` | `/analyze` | Analyze conversation |
-| `POST` | `/threads` | Create thread |
-| `GET` | `/threads` | List threads |
-| `GET` | `/threads/{id}` | Get thread |
-| `DELETE` | `/threads/{id}` | Delete thread |
+| `POST` | `/api/conversations/analyze` | Analyze conversation |
+| `POST` | `/api/conversations/analyze-with-analytics` | Analyze with NLTK analytics |
+| `GET` | `/api/conversations` | List conversations |
+| `GET` | `/api/conversations/{id}` | Get conversation |
+| `GET` | `/api/conversations/{id}/analytics` | Get analytics |
+| `DELETE` | `/api/conversations/{id}` | Delete conversation |
+| `POST` | `/api/extract-topics` | Extract topics from text |
+| `POST` | `/api/generate-conversation` | Generate with LLM |
+| `GET` | `/api/database/export` | Export database |
+| `POST` | `/api/database/import` | Import database |
 
 **Interactive Docs:** http://localhost:8000/docs
 

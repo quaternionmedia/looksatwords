@@ -19,6 +19,9 @@ engine = create_engine(
 
 def create_db_and_tables():
     """Create database tables."""
+    # Import models to register them with SQLModel
+    from .models import Conversation  # noqa: F401
+    from .collection_models import Collection  # noqa: F401
     SQLModel.metadata.create_all(engine)
 
 

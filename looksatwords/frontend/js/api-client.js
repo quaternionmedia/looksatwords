@@ -312,6 +312,184 @@ export class ApiClient {
 
         return await response.json();
     }
+
+    // ============ Collection/Corpus API ============
+
+    /**
+     * Create a new collection
+     * @param {Object} data - Collection data {name, description, conversation_ids}
+     * @returns {Promise<Object>} Created collection
+     */
+    async createCollection(data) {
+        if (!this.isAvailable) {
+            await this.checkHealth();
+        }
+
+        const response = await fetch(`${this.baseUrl}/collections`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to create collection: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * List all collections
+     * @returns {Promise<Array>} List of collections
+     */
+    async listCollections() {
+        const response = await fetch(`${this.baseUrl}/collections`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to list collections: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Get a specific collection by ID
+     * @param {number} collectionId - Collection ID
+     * @returns {Promise<Object>} Collection data
+     */
+    async getCollection(collectionId) {
+        const response = await fetch(`${this.baseUrl}/collections/${collectionId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to get collection: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Update a collection
+     * @param {number} collectionId - Collection ID
+     * @param {Object} data - Update data {name, description, conversation_ids}
+     * @returns {Promise<Object>} Updated collection
+     */
+    async updateCollection(collectionId, data) {
+        const response = await fetch(`${this.baseUrl}/collections/${collectionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to update collection: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Delete a collection
+     * @param {number} collectionId - Collection ID
+     * @returns {Promise<Object>} Deletion result
+     */
+    async deleteCollection(collectionId) {
+        const response = await fetch(`${this.baseUrl}/collections/${collectionId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to delete collection: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Add a conversation to a collection
+     * @param {number} collectionId - Collection ID
+     * @param {number} conversationId - Conversation ID
+     * @returns {Promise<Object>} Result
+     */
+    async addToCollection(collectionId, conversationId) {
+        const response = await fetch(
+            `${this.baseUrl}/collections/${collectionId}/conversations/${conversationId}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Failed to add to collection: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Remove a conversation from a collection
+     * @param {number} collectionId - Collection ID
+     * @param {number} conversationId - Conversation ID
+     * @returns {Promise<Object>} Result
+     */
+    async removeFromCollection(collectionId, conversationId) {
+        const response = await fetch(
+            `${this.baseUrl}/collections/${collectionId}/conversations/${conversationId}`,
+            {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Failed to remove from collection: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Get aggregated analytics for a collection
+     * @param {number} collectionId - Collection ID
+     * @returns {Promise<Object>} Collection analytics
+     */
+    async getCollectionAnalytics(collectionId) {
+        const response = await fetch(`${this.baseUrl}/collections/${collectionId}/analytics`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to get collection analytics: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Compare conversations in a collection
+     * @param {number} collectionId - Collection ID
+     * @returns {Promise<Object>} Comparison data
+     */
+    async compareCollection(collectionId) {
+        const response = await fetch(`${this.baseUrl}/collections/${collectionId}/compare`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to compare collection: ${response.status}`);
+        }
+
+        return await response.json();
+    }
 }
 
 /**

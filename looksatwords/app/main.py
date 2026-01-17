@@ -2,7 +2,7 @@
 
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import List, Optional
 
@@ -28,8 +28,18 @@ from .models import (
     ExtractedTopic,
     TopicsResponse,
 )
+from .collection_models import (
+    Collection,
+    CollectionCreate,
+    CollectionUpdate,
+    CollectionListItem,
+    CollectionResponse,
+    CollectionAnalyticsResponse,
+    ComparisonResponse,
+)
 from .analytics_service import get_analytics_service
 from .topic_service import get_topic_extractor
+from .collection_service import get_collection_analytics_service
 
 # Import backend visualizer for analysis
 import sys
@@ -561,6 +571,329 @@ def import_database(
         "skipped": skipped_count,
         "mode": request.mode
     }
+
+
+# ============ Collection/Corpus Endpoints ============
+
+@app.post("/api/collections", response_model=CollectionResponse)
+def create_collection(
+    request: CollectionCreate,
+    session: Session = Depends(get_session)
+):
+    """Create a new collection for organizing conversations.
+    
+    Collections allow grouping conversations for corpus-level analysis.
+    """
+    collection = Collection(
+        name=request.name,
+        description=request.description,
+        conversation_ids=request.conversation_ids or []
+    )
+    
+    # Update stats if conversations provided
+    if request.conversation_ids:
+        _update_collection_stats(collection, session)
+    
+    session.add(collection)
+    session.commit()
+    session.refresh(collection)
+    
+    return CollectionResponse(
+        id=collection.id,
+        name=collection.name,
+        description=collection.description,
+        created_at=collection.created_at,
+        updated_at=collection.updated_at,
+        conversation_count=collection.conversation_count,
+        total_messages=collection.total_messages,
+        total_words=collection.total_words,
+        avg_sentiment_compound=collection.avg_sentiment_compound,
+        conversation_ids=collection.conversation_ids
+    )
+
+
+@app.get("/api/collections", response_model=List[CollectionListItem])
+def list_collections(session: Session = Depends(get_session)):
+    """List all collections."""
+    collections = session.exec(select(Collection)).all()
+    
+    return [
+        CollectionListItem(
+            id=coll.id,
+            name=coll.name,
+            description=coll.description,
+            created_at=coll.created_at,
+            updated_at=coll.updated_at,
+            conversation_count=coll.conversation_count,
+            total_messages=coll.total_messages,
+            total_words=coll.total_words,
+            avg_sentiment_compound=coll.avg_sentiment_compound
+        )
+        for coll in collections
+    ]
+
+
+@app.get("/api/collections/{collection_id}", response_model=CollectionResponse)
+def get_collection(
+    collection_id: int,
+    session: Session = Depends(get_session)
+):
+    """Get a specific collection by ID."""
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    return CollectionResponse(
+        id=collection.id,
+        name=collection.name,
+        description=collection.description,
+        created_at=collection.created_at,
+        updated_at=collection.updated_at,
+        conversation_count=collection.conversation_count,
+        total_messages=collection.total_messages,
+        total_words=collection.total_words,
+        avg_sentiment_compound=collection.avg_sentiment_compound,
+        conversation_ids=collection.conversation_ids
+    )
+
+
+@app.put("/api/collections/{collection_id}", response_model=CollectionResponse)
+def update_collection(
+    collection_id: int,
+    request: CollectionUpdate,
+    session: Session = Depends(get_session)
+):
+    """Update a collection's name, description, or conversation list."""
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    if request.name is not None:
+        collection.name = request.name
+    if request.description is not None:
+        collection.description = request.description
+    if request.conversation_ids is not None:
+        collection.conversation_ids = request.conversation_ids
+        _update_collection_stats(collection, session)
+    
+    collection.updated_at = datetime.now(UTC)
+    
+    session.add(collection)
+    session.commit()
+    session.refresh(collection)
+    
+    return CollectionResponse(
+        id=collection.id,
+        name=collection.name,
+        description=collection.description,
+        created_at=collection.created_at,
+        updated_at=collection.updated_at,
+        conversation_count=collection.conversation_count,
+        total_messages=collection.total_messages,
+        total_words=collection.total_words,
+        avg_sentiment_compound=collection.avg_sentiment_compound,
+        conversation_ids=collection.conversation_ids
+    )
+
+
+@app.delete("/api/collections/{collection_id}")
+def delete_collection(
+    collection_id: int,
+    session: Session = Depends(get_session)
+):
+    """Delete a collection (does not delete conversations)."""
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    session.delete(collection)
+    session.commit()
+    
+    return {"status": "ok", "message": f"Collection {collection_id} deleted"}
+
+
+@app.post("/api/collections/{collection_id}/conversations/{conversation_id}")
+def add_conversation_to_collection(
+    collection_id: int,
+    conversation_id: int,
+    session: Session = Depends(get_session)
+):
+    """Add a conversation to a collection."""
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    conversation = session.get(Conversation, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    if conversation_id not in collection.conversation_ids:
+        collection.conversation_ids = collection.conversation_ids + [conversation_id]
+        _update_collection_stats(collection, session)
+        collection.updated_at = datetime.now(UTC)
+        session.add(collection)
+        session.commit()
+    
+    return {"status": "ok", "message": f"Conversation {conversation_id} added to collection {collection_id}"}
+
+
+@app.delete("/api/collections/{collection_id}/conversations/{conversation_id}")
+def remove_conversation_from_collection(
+    collection_id: int,
+    conversation_id: int,
+    session: Session = Depends(get_session)
+):
+    """Remove a conversation from a collection."""
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    if conversation_id in collection.conversation_ids:
+        collection.conversation_ids = [
+            cid for cid in collection.conversation_ids if cid != conversation_id
+        ]
+        _update_collection_stats(collection, session)
+        collection.updated_at = datetime.now(UTC)
+        session.add(collection)
+        session.commit()
+    
+    return {"status": "ok", "message": f"Conversation {conversation_id} removed from collection {collection_id}"}
+
+
+@app.get("/api/collections/{collection_id}/analytics", response_model=CollectionAnalyticsResponse)
+def get_collection_analytics(
+    collection_id: int,
+    session: Session = Depends(get_session)
+):
+    """Get aggregated analytics for all conversations in a collection.
+    
+    Returns corpus-level analysis including:
+    - Aggregated sentiment across all conversations
+    - Combined word frequency
+    - Speaker statistics across corpus
+    - Conversation summaries for comparison
+    """
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    # Fetch all conversations in collection
+    conversations = []
+    time_points_list = []
+    
+    for conv_id in collection.conversation_ids:
+        conv = session.get(Conversation, conv_id)
+        if conv:
+            conversations.append(conv)
+            # Parse time points for analytics
+            visualizer = ThreadVisualizerBackend(use_nltk=False)
+            time_points = visualizer.parseConversation(conv.text)
+            time_points_list.append(time_points)
+    
+    # Run collection analytics
+    analytics_service = get_collection_analytics_service()
+    analytics = analytics_service.aggregate_conversations(conversations, time_points_list)
+    
+    # Extract common topics
+    common_topics = analytics_service.extract_common_topics(conversations)
+    
+    return CollectionAnalyticsResponse(
+        collection_id=collection_id,
+        collection_name=collection.name,
+        conversation_count=analytics['conversation_count'],
+        total_messages=analytics['total_messages'],
+        total_words=analytics['total_words'],
+        average_words_per_message=analytics['average_words_per_message'],
+        avg_sentiment=analytics['avg_sentiment'],
+        overall_sentiment=analytics['overall_sentiment'],
+        sentiment_distribution=analytics['sentiment_distribution'],
+        word_frequency=analytics['word_frequency'],
+        pos_distribution=analytics['pos_distribution'],
+        unique_speakers=analytics['unique_speakers'],
+        speaker_stats=analytics['speaker_stats'],
+        conversation_summaries=analytics['conversation_summaries'],
+        common_topics=common_topics
+    )
+
+
+@app.get("/api/collections/{collection_id}/compare", response_model=ComparisonResponse)
+def compare_collection_conversations(
+    collection_id: int,
+    session: Session = Depends(get_session)
+):
+    """Compare all conversations within a collection.
+    
+    Returns detailed comparison including:
+    - Sentiment comparison across conversations
+    - Verbosity comparison
+    - Speaker overlap analysis
+    - Common words across conversations
+    """
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    # Fetch all conversations
+    conversations = []
+    time_points_list = []
+    
+    for conv_id in collection.conversation_ids:
+        conv = session.get(Conversation, conv_id)
+        if conv:
+            conversations.append(conv)
+            visualizer = ThreadVisualizerBackend(use_nltk=False)
+            time_points = visualizer.parseConversation(conv.text)
+            time_points_list.append(time_points)
+    
+    # Run comparison
+    analytics_service = get_collection_analytics_service()
+    comparison = analytics_service.compare_conversations(conversations, time_points_list)
+    
+    return ComparisonResponse(
+        collection_id=collection_id,
+        conversations=[{
+            'id': c['id'],
+            'title': c['title'],
+            'analytics_summary': {
+                'messages': c['analytics']['aggregated']['total_messages'],
+                'words': c['analytics']['aggregated']['total_words'],
+                'sentiment': c['analytics']['aggregated']['overall_sentiment'],
+                'compound': c['analytics']['aggregated']['average_sentiment']['compound']
+            }
+        } for c in comparison['conversations']],
+        sentiment_comparison=comparison['sentiment_comparison'],
+        verbosity_comparison=comparison['verbosity_comparison'],
+        speaker_overlap=comparison['speaker_overlap'],
+        common_words=comparison['common_words']
+    )
+
+
+def _update_collection_stats(collection: Collection, session: Session):
+    """Update cached statistics for a collection."""
+    total_messages = 0
+    total_words = 0
+    sentiment_sum = 0.0
+    valid_count = 0
+    
+    analytics_service = get_analytics_service()
+    
+    for conv_id in collection.conversation_ids:
+        conv = session.get(Conversation, conv_id)
+        if conv:
+            visualizer = ThreadVisualizerBackend(use_nltk=False)
+            time_points = visualizer.parseConversation(conv.text)
+            analytics = analytics_service.analyze_conversation(time_points)
+            
+            agg = analytics['aggregated']
+            total_messages += agg['total_messages']
+            total_words += agg['total_words']
+            sentiment_sum += agg['average_sentiment']['compound']
+            valid_count += 1
+    
+    collection.conversation_count = len(collection.conversation_ids)
+    collection.total_messages = total_messages
+    collection.total_words = total_words
+    collection.avg_sentiment_compound = sentiment_sum / valid_count if valid_count > 0 else 0.0
 
 
 # Mount static files for frontend assets (css/, js/, etc.)
