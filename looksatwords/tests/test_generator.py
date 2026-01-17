@@ -1,5 +1,6 @@
 from looksatwords.generator import GnewsGenerator
 
+
 def test_generator():
     gnews_generator = GnewsGenerator()
     gnews_generator.generate()

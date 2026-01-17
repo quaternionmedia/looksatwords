@@ -1,39 +1,76 @@
 import ollama
 
-
-
-
-host_url = 'http://localhost:11434'
-publisher = 'Made by Ollama'
+host_url = "http://localhost:11434"
+publisher = "Made by Ollama"
 
 news_bot = ollama.Client(host=host_url)
 headline_bot_init = [
-        {
-            'role': 'system',
-            'content': 'You are a journalist writing a news headline. Include only content, no explanation. Include subltle random biases and opinions. Do not ask follow-up questions or include annotations or parenthases.',
-        },
+    {
+        "role": "system",
+        "content": "You are a journalist writing a news headline. Include only content, no explanation. Include subltle random biases and opinions. Do not ask follow-up questions or include annotations or parenthases.",
+    },
 ]
 description_bot_init = [
-        {
-            'role': 'system',
-            'content': 'You are a journalist writing a news description based off of a headline. Include only content, no explanation. Include subltle random biases and opinions. Do not ask follow-up questions or include annotations or parenthases.',
-        },
+    {
+        "role": "system",
+        "content": "You are a journalist writing a news description based off of a headline. Include only content, no explanation. Include subltle random biases and opinions. Do not ask follow-up questions or include annotations or parenthases.",
+    },
 ]
 
-def ask(question, context=[{'role':'system', 'content':'You are a helpful knowledge sharer'}]):
-    response = news_bot.chat(model='llama3.1', messages=[
-        *context,
-        {
-            'role': 'user',
-            'content': question,
-        },
-        ])
-    
-    return response['message']['content']
 
-def generate_news_headline(seed: str = ''):
-    return ask('generate a single random {seed} news headline?', headline_bot_init)
+def ask(
+    question,
+    context=[{"role": "system", "content": "You are a helpful knowledge sharer"}],
+):
+    """
+    Sends a question to the Ollama chat model using the specified context.
 
-def generate_news_description(headline:str):
-    return ask(f'generate a single random news story based on the headline "{headline}"?', description_bot_init)
+    Parameters:
+        question (str): The user question or prompt to send to the model.
+        context (list, optional): A list of context messages in the form of dicts with 'role' and 'content'.
+                                  Defaults to a generic helpful assistant context.
 
+    Returns:
+        str: The content of the model's response message.
+    """
+    response = news_bot.chat(
+        model="llama3.1",
+        messages=[
+            *context,
+            {
+                "role": "user",
+                "content": question,
+            },
+        ],
+    )
+
+    return response["message"]["content"]
+
+
+def generate_news_headline(seed: str = ""):
+    """
+    Generates a single, random news headline based on an optional seed prompt.
+
+    Parameters:
+        seed (str, optional): A seed or topic to inspire the headline. Defaults to an empty string.
+
+    Returns:
+        str: A generated news headline.
+    """
+    return ask("generate a single random {seed} news headline?", headline_bot_init)
+
+
+def generate_news_description(headline: str):
+    """
+    Generates a news description based on a provided headline.
+
+    Parameters:
+        headline (str): The news headline to base the description on.
+
+    Returns:
+        str: A generated news story description.
+    """
+    return ask(
+        f'generate a single random news story based on the headline "{headline}"?',
+        description_bot_init,
+    )

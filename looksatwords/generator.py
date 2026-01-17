@@ -9,10 +9,23 @@ from .validator import gnews_data_schema
 
 
 class Generator(DataIO):
-    def __init__(self, db_path='data.json', table_name='generator', n=1):
+    """
+    A base class for generating and validating data, inheriting from DataIO.
+
+    Attributes:
+        df_schema (Schema): Schema used for validating the dataframe.
+        table_name (str): The name of the table used in the underlying data store, with a '_generator' suffix.
+        n (int): Number of items to generate per batch.
+
+    Methods:
+        generate(): Placeholder method to be implemented in subclasses.
+        validate(): Validates the current dataframe against the predefined pandera schema.
+    """
+
+    def __init__(self, db_path="data.json", table_name="generator", n=1):
         super().__init__(db_path=db_path, table_name=table_name)
         self.df_schema = gnews_data_schema
-        self.table_name = self.table_name + '_generator'
+        self.table_name = self.table_name + "_generator"
         self.n = n
 
     def generate(self):
@@ -24,16 +37,38 @@ class Generator(DataIO):
 
 
 class GnewsGenerator(Generator):
+    """
+    A news generation class that uses language models to create news headlines and descriptions based on a seed word.
+
+    Attributes:
+        seedword (str): A keyword used as the seed for news content generation.
+        table_name (str): The name of the table in the data store, with a '_gennews' suffix.
+
+    Methods:
+        generate(hud): Generates a batch of news items and returns them as a DataFrame.
+        generate_news(hud): Generates a single news item including headline, description, and metadata.
+        generate_news_batch(hud, task, n): Generates multiple news items and updates HUD progress.
+    """
+
     def __init__(
-        self, seedword=None, db_path='data.json', table_name='generatednews', **kwargs
+        self, seedword=None, db_path="data.json", table_name="generatednews", **kwargs
     ):
         super().__init__(db_path=db_path, table_name=table_name, **kwargs)
-        self.table_name = self.table_name + '_gennews'
+        self.table_name = self.table_name + "_gennews"
         self.seedword = seedword
 
     @hud
     def generate(self, hud):
-        columns = ['headline', 'description', 'url', 'published date', 'publisher']
+        """
+        Generates a batch of news items and returns them as a DataFrame.
+        Parameters:
+            hud (Progress): The Rich progress tracker object for visualizing task progress.
+
+        Returns:
+            DataFrame: A DataFrame containing the generated news items with columns:
+                       'headline', 'description', 'url', 'published date', 'publisher'.
+        """
+        columns = ["headline", "description", "url", "published date", "publisher"]
         batch_generate_task = hud.add_task(
             f"[green]Generator:Generating {self.n} news...", total=self.n
         )
@@ -43,6 +78,16 @@ class GnewsGenerator(Generator):
 
     @hud
     def generate_news(self, hud):
+        """
+        Generates a single news item including headline, description, and metadata.
+
+        Parameters:
+            hud (Progress): The Rich progress tracker object for task visualization.
+
+        Returns:
+            tuple: A tuple containing headline (str), description (str), url (str),
+                   published date (str, ISO format), and publisher (str).
+        """
 
         task_headline = hud.add_task(
             f"[green]Generator:Generating new headline", total=1
@@ -61,6 +106,17 @@ class GnewsGenerator(Generator):
 
     @hud
     def generate_news_batch(self, hud, task, n=1):
+        """
+        Generates a batch of news items, updating a HUD task for each item generated.
+
+        Parameters:
+            hud (Progress): The Rich progress tracker object.
+            task (TaskID): The task identifier for HUD progress tracking.
+            n (int, optional): Number of news items to generate. Defaults to 1.
+
+        Returns:
+            list: A list of tuples, each containing generated news data.
+        """
         news = []
         for _ in range(n):
             news.append(self.generate_news())

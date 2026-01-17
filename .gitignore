@@ -3,6 +3,22 @@ output/
 dbs/
 .lawvenv/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+looksatwords.db
+
+# Alembic migrations (keep versions but ignore auto-generated)
+alembic/versions/*.pyc
+
+# Test artifacts
+nonexistent_file.json
+
+# Playwright
+playwright-report/
+test-results/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

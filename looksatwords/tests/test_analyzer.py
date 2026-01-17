@@ -1,6 +1,7 @@
 from looksatwords.analyzer import Analyzer
 from looksatwords.gatherer import GnewsGatherer
 
+
 def test_analyzer():
     gath = GnewsGatherer()
     gath.gather()
