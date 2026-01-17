@@ -93,9 +93,11 @@ class CollectionAnalyticsService:
                 )
             
             # Create conversation summary
+            conv_id = getattr(conv, 'id', None) or (conv.get('id') if isinstance(conv, dict) else 0)
+            conv_title = getattr(conv, 'title', None) or (conv.get('title') if isinstance(conv, dict) else 'Untitled')
             conversation_summaries.append({
-                'id': conv.get('id') or conv.id if hasattr(conv, 'id') else 0,
-                'title': conv.get('title') or conv.title if hasattr(conv, 'title') else 'Untitled',
+                'id': conv_id,
+                'title': conv_title,
                 'messages': agg['total_messages'],
                 'words': agg['total_words'],
                 'sentiment': agg['overall_sentiment'],
@@ -157,11 +159,13 @@ class CollectionAnalyticsService:
         topic_data = {}
         
         for conv in conversations:
-            text = conv.get('text') or (conv.text if hasattr(conv, 'text') else '')
+            text = getattr(conv, 'text', None) or (conv.get('text') if isinstance(conv, dict) else '')
             if not text:
                 continue
             
             topics = self.topic_extractor.extract_topics(text, max_topics=10)
+            
+            conv_id = getattr(conv, 'id', None) or (conv.get('id') if isinstance(conv, dict) else 0)
             
             for topic in topics:
                 name = topic['name'].lower()
@@ -174,9 +178,7 @@ class CollectionAnalyticsService:
                         'appearances': []
                     }
                 topic_data[name]['total_score'] += topic['score']
-                topic_data[name]['appearances'].append(
-                    conv.get('id') or (conv.id if hasattr(conv, 'id') else 0)
-                )
+                topic_data[name]['appearances'].append(conv_id)
         
         # Build result with percentage
         total_convs = len(conversations)
@@ -221,8 +223,8 @@ class CollectionAnalyticsService:
             if not time_points:
                 continue
             
-            conv_id = conv.get('id') or (conv.id if hasattr(conv, 'id') else 0)
-            conv_title = conv.get('title') or (conv.title if hasattr(conv, 'title') else 'Untitled')
+            conv_id = getattr(conv, 'id', None) or (conv.get('id') if isinstance(conv, dict) else 0)
+            conv_title = getattr(conv, 'title', None) or (conv.get('title') if isinstance(conv, dict) else 'Untitled')
             
             analytics = self.analytics_service.analyze_conversation(time_points)
             agg = analytics['aggregated']

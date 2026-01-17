@@ -490,6 +490,212 @@ export class ApiClient {
 
         return await response.json();
     }
+
+    // ============ News Gathering & Generation API ============
+
+    /**
+     * Check availability of news-related services
+     * @returns {Promise<Object>} Service status
+     */
+    async getNewsServiceStatus() {
+        const response = await fetch(`${this.baseUrl}/news/status`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to get news status: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Gather news articles from GNews API
+     * @param {Object} params - Search parameters
+     * @param {string} [params.keyword] - Search keyword
+     * @param {string} [params.topic] - Topic (WORLD, NATION, BUSINESS, etc.)
+     * @param {string} [params.location] - Location filter
+     * @param {string} [params.site] - Site filter
+     * @param {boolean} [params.top] - Get top news
+     * @param {number} [params.max_results] - Max results (default 5)
+     * @returns {Promise<Object>} Articles with analytics
+     */
+    async gatherNews(params) {
+        const response = await fetch(`${this.baseUrl}/news/gather`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            throw new Error(error.detail || `Failed to gather news: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Generate synthetic news articles using LLM
+     * @param {string} seedWord - Topic/seed word
+     * @param {number} [count=3] - Number of articles to generate
+     * @returns {Promise<Object>} Generated articles with analytics
+     */
+    async generateNews(seedWord, count = 3) {
+        const response = await fetch(`${this.baseUrl}/news/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seed_word: seedWord, count })
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            throw new Error(error.detail || `Failed to generate news: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Analyze a list of news articles
+     * @param {Array} articles - List of articles
+     * @returns {Promise<Object>} Analytics results
+     */
+    async analyzeNews(articles) {
+        const response = await fetch(`${this.baseUrl}/news/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(articles)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to analyze news: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    // ============ Visualization API ============
+
+    /**
+     * Generate a word cloud visualization
+     * @param {Array<string>} words - List of words
+     * @param {Object} [options] - Options (width, height, background_color)
+     * @returns {Promise<Object>} Plot response with base64 image
+     */
+    async generateWordCloud(words, options = {}) {
+        const response = await fetch(`${this.baseUrl}/visualize/word-cloud`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ words, ...options })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to generate word cloud: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Generate a word frequency chart
+     * @param {Array} wordFrequency - List of {word, count}
+     * @param {number} [topN=20] - Top N words
+     * @param {string} [title] - Chart title
+     * @returns {Promise<Object>} Plot response with base64 image
+     */
+    async generateWordFrequencyChart(wordFrequency, topN = 20, title = 'Word Frequency') {
+        const response = await fetch(`${this.baseUrl}/visualize/word-frequency`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word_frequency: wordFrequency, top_n: topN, title })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to generate word frequency chart: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Generate a sentiment chart
+     * @param {Array} sentimentData - List of sentiment data points
+     * @param {string} [title] - Chart title
+     * @returns {Promise<Object>} Plot response with base64 image
+     */
+    async generateSentimentChart(sentimentData, title = 'Sentiment Analysis') {
+        const response = await fetch(`${this.baseUrl}/visualize/sentiment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sentiment_data: sentimentData, title })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to generate sentiment chart: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Generate a POS distribution pie chart
+     * @param {Object} posDistribution - POS tag counts
+     * @param {string} [title] - Chart title
+     * @returns {Promise<Object>} Plot response with base64 image
+     */
+    async generatePOSChart(posDistribution, title = 'Parts of Speech') {
+        const response = await fetch(`${this.baseUrl}/visualize/pos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pos_distribution: posDistribution, title })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to generate POS chart: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Generate a speaker comparison chart
+     * @param {Object} speakerAnalytics - Speaker analytics data
+     * @param {string} [title] - Chart title
+     * @returns {Promise<Object>} Plot response with base64 image
+     */
+    async generateSpeakerChart(speakerAnalytics, title = 'Speaker Comparison') {
+        const response = await fetch(`${this.baseUrl}/visualize/speakers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ speaker_analytics: speakerAnalytics, title })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to generate speaker chart: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Get all visualizations for a conversation
+     * @param {number} conversationId - Conversation ID
+     * @returns {Promise<Object>} All visualization plots
+     */
+    async getConversationVisualizations(conversationId) {
+        const response = await fetch(`${this.baseUrl}/conversations/${conversationId}/visualizations`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to get visualizations: ${response.status}`);
+        }
+
+        return await response.json();
+    }
 }
 
 /**
@@ -497,7 +703,7 @@ export class ApiClient {
  */
 export class UIFeedback {
     /**
-     * Show loading indicator
+     * Show loading indicator (corner indicator for quick operations)
      * @param {boolean} show - Whether to show or hide
      * @param {string} [message='Loading...'] - Loading message
      */
@@ -512,19 +718,76 @@ export class UIFeedback {
                     position: fixed;
                     top: 20px;
                     right: 20px;
-                    background: rgba(0, 212, 255, 0.9);
+                    background: rgba(0, 212, 255, 0.95);
                     color: white;
                     padding: 12px 20px;
                     border-radius: 8px;
                     z-index: 10000;
                     font-weight: bold;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
                 `;
                 document.body.appendChild(loader);
             }
-            loader.innerHTML = `⏳ ${message}`;
-            loader.style.display = 'block';
+            loader.innerHTML = `
+                <div class="loading-spinner-sm"></div>
+                <span>${message}</span>
+            `;
+            loader.style.display = 'flex';
         } else if (loader) {
             loader.remove();
+        }
+    }
+
+    /**
+     * Show full-screen loading overlay for long operations (e.g., before modals load)
+     * @param {boolean} show - Whether to show or hide
+     * @param {string} [message='Loading...'] - Loading message
+     */
+    static showModalLoading(show, message = 'Loading...') {
+        let overlay = document.getElementById('modalLoadingOverlay');
+
+        if (show) {
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'modalLoadingOverlay';
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.85);
+                    z-index: 9999;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 20px;
+                    backdrop-filter: blur(4px);
+                `;
+                document.body.appendChild(overlay);
+            }
+            overlay.innerHTML = `
+                <div class="loading-spinner-lg"></div>
+                <div style="
+                    color: white;
+                    font-size: 18px;
+                    font-weight: 600;
+                    text-align: center;
+                    max-width: 300px;
+                ">${message}</div>
+                <div style="
+                    color: rgba(255,255,255,0.5);
+                    font-size: 12px;
+                ">Please wait...</div>
+            `;
+            overlay.style.display = 'flex';
+        } else if (overlay) {
+            overlay.style.animation = 'fadeOut 0.2s ease-out';
+            setTimeout(() => overlay.remove(), 200);
         }
     }
 

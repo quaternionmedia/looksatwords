@@ -424,7 +424,7 @@ export class ConversationVisualizerApp {
      */
     async generateConversation(options = {}) {
         try {
-            UIFeedback.showLoading(true, 'Generating conversation with AI...');
+            UIFeedback.showModalLoading(true, 'Generating conversation with AI...');
             
             const result = await this.apiClient.generateConversation(options);
             
@@ -433,11 +433,11 @@ export class ConversationVisualizerApp {
                 inputEl.value = result.text;
             }
             
-            UIFeedback.showLoading(false);
+            UIFeedback.showModalLoading(false);
             UIFeedback.showMessage(`✓ Generated conversation about: ${result.topic}`, 'success');
             
         } catch (error) {
-            UIFeedback.showLoading(false);
+            UIFeedback.showModalLoading(false);
             console.error('Generation failed:', error);
             UIFeedback.showMessage(`Generation failed: ${error.message}`, 'error');
         }
@@ -1185,16 +1185,16 @@ export class ConversationVisualizerApp {
      */
     async showCollectionAnalytics(collectionId) {
         try {
-            UIFeedback.showLoading(true, 'Analyzing collection...');
+            UIFeedback.showModalLoading(true, 'Analyzing collection...');
             
             const analytics = await this.apiClient.getCollectionAnalytics(collectionId);
             
-            UIFeedback.showLoading(false);
+            UIFeedback.showModalLoading(false);
             
             this.renderCollectionAnalyticsModal(analytics);
             
         } catch (error) {
-            UIFeedback.showLoading(false);
+            UIFeedback.showModalLoading(false);
             console.error('Failed to get collection analytics:', error);
             UIFeedback.showMessage(`Failed: ${error.message}`, 'error');
         }
@@ -1489,6 +1489,491 @@ export class ConversationVisualizerApp {
     getStats() {
         return this.data.getStats();
     }
+
+    // ============ News Gathering & Generation ============
+
+    /**
+     * Show news gatherer modal
+     */
+    async showNewsGathererModal() {
+        try {
+            // Show loading overlay while checking service status
+            UIFeedback.showModalLoading(true, 'Checking news service availability...');
+            
+            // Check service status
+            const status = await this.apiClient.getNewsServiceStatus();
+            
+            // Hide loading overlay
+            UIFeedback.showModalLoading(false);
+            
+            const modal = document.createElement('div');
+            modal.id = 'newsGathererModal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 12px;
+                padding: 24px;
+                max-width: 800px;
+                max-height: 90vh;
+                overflow-y: auto;
+                width: 95%;
+            `;
+            
+            content.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0; color: #00d4ff;">📰 News Gatherer & Generator</h3>
+                    <button onclick="this.closest('#newsGathererModal').remove()" 
+                            style="background: none; border: none; color: #888; font-size: 24px; cursor: pointer;">×</button>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <span style="padding: 4px 8px; border-radius: 4px; font-size: 11px; background: ${status.gnews_available ? '#00ff88' : '#ff6b6b'}22; color: ${status.gnews_available ? '#00ff88' : '#ff6b6b'};">
+                        GNews: ${status.gnews_available ? '✓ Available' : '✗ Unavailable'}
+                    </span>
+                    <span style="padding: 4px 8px; border-radius: 4px; font-size: 11px; background: ${status.llm_available ? '#00ff88' : '#ff6b6b'}22; color: ${status.llm_available ? '#00ff88' : '#ff6b6b'};">
+                        LLM: ${status.llm_available ? '✓ Available' : '✗ Unavailable'}
+                    </span>
+                </div>
+                
+                <!-- Tabs -->
+                <div style="display: flex; gap: 4px; margin-bottom: 16px;">
+                    <button id="tabGather" class="news-tab active" style="
+                        flex: 1;
+                        padding: 10px;
+                        border: none;
+                        background: rgba(0, 212, 255, 0.2);
+                        color: #00d4ff;
+                        border-radius: 6px 6px 0 0;
+                        cursor: pointer;
+                        font-weight: 600;
+                    ">📥 Gather News</button>
+                    <button id="tabGenerate" class="news-tab" style="
+                        flex: 1;
+                        padding: 10px;
+                        border: none;
+                        background: rgba(255, 255, 255, 0.1);
+                        color: #888;
+                        border-radius: 6px 6px 0 0;
+                        cursor: pointer;
+                    ">🤖 Generate News</button>
+                </div>
+                
+                <!-- Gather Panel -->
+                <div id="gatherPanel" style="background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; padding: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; color: #aaa; font-size: 11px; margin-bottom: 4px;">Keyword</label>
+                            <input type="text" id="newsKeyword" placeholder="e.g., artificial intelligence" style="
+                                width: 100%;
+                                padding: 8px;
+                                background: rgba(0,0,0,0.3);
+                                border: 1px solid rgba(255,255,255,0.2);
+                                border-radius: 4px;
+                                color: white;
+                            ">
+                        </div>
+                        <div>
+                            <label style="display: block; color: #aaa; font-size: 11px; margin-bottom: 4px;">Topic</label>
+                            <select id="newsTopic" style="
+                                width: 100%;
+                                padding: 8px;
+                                background: rgba(0,0,0,0.3);
+                                border: 1px solid rgba(255,255,255,0.2);
+                                border-radius: 4px;
+                                color: white;
+                            ">
+                                <option value="">-- Select Topic --</option>
+                                <option value="WORLD">🌍 World</option>
+                                <option value="NATION">🏛️ Nation</option>
+                                <option value="BUSINESS">💼 Business</option>
+                                <option value="TECHNOLOGY">💻 Technology</option>
+                                <option value="ENTERTAINMENT">🎬 Entertainment</option>
+                                <option value="SPORTS">⚽ Sports</option>
+                                <option value="SCIENCE">🔬 Science</option>
+                                <option value="HEALTH">🏥 Health</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; color: #aaa; font-size: 11px; margin-bottom: 4px;">Location</label>
+                            <input type="text" id="newsLocation" placeholder="e.g., United States" style="
+                                width: 100%;
+                                padding: 8px;
+                                background: rgba(0,0,0,0.3);
+                                border: 1px solid rgba(255,255,255,0.2);
+                                border-radius: 4px;
+                                color: white;
+                            ">
+                        </div>
+                        <div>
+                            <label style="display: block; color: #aaa; font-size: 11px; margin-bottom: 4px;">Max Results</label>
+                            <input type="number" id="newsMaxResults" value="5" min="1" max="20" style="
+                                width: 100%;
+                                padding: 8px;
+                                background: rgba(0,0,0,0.3);
+                                border: 1px solid rgba(255,255,255,0.2);
+                                border-radius: 4px;
+                                color: white;
+                            ">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 6px; color: #aaa; font-size: 12px;">
+                            <input type="checkbox" id="newsTop"> Get Top News
+                        </label>
+                    </div>
+                    <button id="gatherBtn" style="
+                        width: 100%;
+                        margin-top: 16px;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #00d4ff, #0099cc);
+                        border: none;
+                        border-radius: 6px;
+                        color: white;
+                        font-weight: 600;
+                        cursor: pointer;
+                    " ${!status.gnews_available ? 'disabled' : ''}>📥 Gather News</button>
+                </div>
+                
+                <!-- Generate Panel (hidden by default) -->
+                <div id="generatePanel" style="display: none; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; padding: 16px;">
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; color: #aaa; font-size: 11px; margin-bottom: 4px;">Seed Word / Topic</label>
+                        <input type="text" id="genSeedWord" placeholder="e.g., climate change, technology, sports" style="
+                            width: 100%;
+                            padding: 8px;
+                            background: rgba(0,0,0,0.3);
+                            border: 1px solid rgba(255,255,255,0.2);
+                            border-radius: 4px;
+                            color: white;
+                        ">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; color: #aaa; font-size: 11px; margin-bottom: 4px;">Number of Articles</label>
+                        <input type="number" id="genCount" value="3" min="1" max="10" style="
+                            width: 100%;
+                            padding: 8px;
+                            background: rgba(0,0,0,0.3);
+                            border: 1px solid rgba(255,255,255,0.2);
+                            border-radius: 4px;
+                            color: white;
+                        ">
+                    </div>
+                    <button id="generateBtn" style="
+                        width: 100%;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #9333ea, #7c3aed);
+                        border: none;
+                        border-radius: 6px;
+                        color: white;
+                        font-weight: 600;
+                        cursor: pointer;
+                    " ${!status.llm_available ? 'disabled' : ''}>🤖 Generate Articles</button>
+                </div>
+                
+                <!-- Results Area -->
+                <div id="newsResults" style="margin-top: 20px; display: none;">
+                    <h4 style="color: #00d4ff; margin-bottom: 12px;">📋 Results</h4>
+                    <div id="articlesContainer"></div>
+                    <div id="newsAnalytics" style="margin-top: 16px;"></div>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            
+            // Tab switching
+            const tabGather = content.querySelector('#tabGather');
+            const tabGenerate = content.querySelector('#tabGenerate');
+            const gatherPanel = content.querySelector('#gatherPanel');
+            const generatePanel = content.querySelector('#generatePanel');
+            
+            tabGather.addEventListener('click', () => {
+                tabGather.style.background = 'rgba(0, 212, 255, 0.2)';
+                tabGather.style.color = '#00d4ff';
+                tabGenerate.style.background = 'rgba(255, 255, 255, 0.1)';
+                tabGenerate.style.color = '#888';
+                gatherPanel.style.display = 'block';
+                generatePanel.style.display = 'none';
+            });
+            
+            tabGenerate.addEventListener('click', () => {
+                tabGenerate.style.background = 'rgba(147, 51, 234, 0.2)';
+                tabGenerate.style.color = '#9333ea';
+                tabGather.style.background = 'rgba(255, 255, 255, 0.1)';
+                tabGather.style.color = '#888';
+                gatherPanel.style.display = 'none';
+                generatePanel.style.display = 'block';
+            });
+            
+            // Gather button
+            content.querySelector('#gatherBtn').addEventListener('click', async () => {
+                const params = {
+                    keyword: content.querySelector('#newsKeyword').value.trim() || null,
+                    topic: content.querySelector('#newsTopic').value || null,
+                    location: content.querySelector('#newsLocation').value.trim() || null,
+                    top: content.querySelector('#newsTop').checked,
+                    max_results: parseInt(content.querySelector('#newsMaxResults').value) || 5
+                };
+                
+                try {
+                    UIFeedback.showLoading(true, 'Gathering news...');
+                    const result = await this.apiClient.gatherNews(params);
+                    UIFeedback.showLoading(false);
+                    this.displayNewsResults(content, result);
+                } catch (error) {
+                    UIFeedback.showLoading(false);
+                    UIFeedback.showMessage(`Failed: ${error.message}`, 'error');
+                }
+            });
+            
+            // Generate button
+            content.querySelector('#generateBtn').addEventListener('click', async () => {
+                const seedWord = content.querySelector('#genSeedWord').value.trim();
+                const count = parseInt(content.querySelector('#genCount').value) || 3;
+                
+                if (!seedWord) {
+                    UIFeedback.showMessage('Please enter a seed word', 'warning');
+                    return;
+                }
+                
+                try {
+                    UIFeedback.showModalLoading(true, `Generating ${count} article(s) with AI...`);
+                    const result = await this.apiClient.generateNews(seedWord, count);
+                    UIFeedback.showModalLoading(false);
+                    this.displayNewsResults(content, result);
+                } catch (error) {
+                    UIFeedback.showModalLoading(false);
+                    UIFeedback.showMessage(`Failed: ${error.message}`, 'error');
+                }
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+            
+            document.body.appendChild(modal);
+            
+        } catch (error) {
+            UIFeedback.showModalLoading(false);
+            console.error('Failed to open news gatherer:', error);
+            UIFeedback.showMessage(`Failed: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Display news results in the modal
+     */
+    displayNewsResults(container, result) {
+        const resultsDiv = container.querySelector('#newsResults');
+        const articlesContainer = container.querySelector('#articlesContainer');
+        const analyticsContainer = container.querySelector('#newsAnalytics');
+        
+        resultsDiv.style.display = 'block';
+        
+        // Display articles
+        articlesContainer.innerHTML = result.articles.map((article, i) => `
+            <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 3px solid ${article.source_type === 'generated' ? '#9333ea' : '#00d4ff'};">
+                <div style="font-weight: 600; color: #fff; margin-bottom: 6px;">${article.headline}</div>
+                ${article.description ? `<div style="color: #aaa; font-size: 12px; margin-bottom: 6px;">${article.description}</div>` : ''}
+                <div style="display: flex; gap: 16px; font-size: 11px; color: #666;">
+                    ${article.publisher ? `<span>📰 ${article.publisher}</span>` : ''}
+                    ${article.published_date ? `<span>📅 ${new Date(article.published_date).toLocaleDateString()}</span>` : ''}
+                    <span style="color: ${article.source_type === 'generated' ? '#9333ea' : '#00d4ff'};">
+                        ${article.source_type === 'generated' ? '🤖 Generated' : '📥 Gathered'}
+                    </span>
+                </div>
+            </div>
+        `).join('');
+        
+        // Display analytics summary if available
+        if (result.analytics) {
+            const agg = result.analytics.aggregated;
+            analyticsContainer.innerHTML = `
+                <div style="background: rgba(0,212,255,0.1); border-radius: 8px; padding: 12px;">
+                    <div style="font-weight: 600; color: #00d4ff; margin-bottom: 8px;">📊 Quick Analytics</div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; font-size: 12px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: 700; color: #00d4ff;">${agg.total_messages}</div>
+                            <div style="color: #888;">Articles</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: 700; color: #00ff88;">${agg.total_words}</div>
+                            <div style="color: #888;">Words</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: 700; color: ${agg.overall_sentiment === 'positive' ? '#00ff88' : agg.overall_sentiment === 'negative' ? '#ff6b6b' : '#ffd93d'};">
+                                ${agg.overall_sentiment === 'positive' ? '😊' : agg.overall_sentiment === 'negative' ? '😔' : '😐'}
+                            </div>
+                            <div style="color: #888;">${agg.overall_sentiment}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: 700; color: #ffd93d;">${agg.average_sentiment.compound.toFixed(2)}</div>
+                            <div style="color: #888;">Compound</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    // ============ Visualization Charts ============
+
+    /**
+     * Show visualizations modal
+     */
+    async showVisualizationsModal() {
+        // Check if we have current analytics data
+        if (!this.data.conversationId && !this.data.timePoints.length) {
+            UIFeedback.showMessage('Please analyze a conversation first', 'warning');
+            return;
+        }
+        
+        try {
+            UIFeedback.showModalLoading(true, 'Generating visualizations...');
+            
+            let visualizations;
+            if (this.data.conversationId) {
+                // Fetch from backend
+                visualizations = await this.apiClient.getConversationVisualizations(this.data.conversationId);
+            } else {
+                UIFeedback.showModalLoading(false);
+                UIFeedback.showMessage('Please save conversation to database first for visualizations', 'warning');
+                return;
+            }
+            
+            UIFeedback.showModalLoading(false);
+            
+            this.renderVisualizationsModal(visualizations);
+            
+        } catch (error) {
+            UIFeedback.showModalLoading(false);
+            console.error('Failed to generate visualizations:', error);
+            UIFeedback.showMessage(`Failed: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Render visualizations modal
+     */
+    renderVisualizationsModal(data) {
+        const modal = document.createElement('div');
+        modal.id = 'visualizationsModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        `;
+        
+        const visualizations = data.visualizations || {};
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 1200px;
+            max-height: 95vh;
+            overflow-y: auto;
+            width: 95%;
+            margin: 20px;
+        `;
+        
+        const vizKeys = Object.keys(visualizations);
+        
+        content.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #00ff88;">📈 Conversation Visualizations</h3>
+                <button onclick="this.closest('#visualizationsModal').remove()" 
+                        style="background: none; border: none; color: #888; font-size: 24px; cursor: pointer;">×</button>
+            </div>
+            
+            ${vizKeys.length === 0 ? `
+                <div style="text-align: center; color: #666; padding: 40px;">
+                    No visualizations available. Make sure matplotlib is installed.
+                </div>
+            ` : `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px;">
+                    ${vizKeys.map(key => {
+                        const viz = visualizations[key];
+                        if (viz.error) {
+                            return `
+                                <div style="background: rgba(255,107,107,0.1); border-radius: 8px; padding: 16px;">
+                                    <h4 style="color: #ff6b6b; margin: 0 0 8px 0;">${this.formatVizTitle(key)}</h4>
+                                    <div style="color: #888;">${viz.error}</div>
+                                </div>
+                            `;
+                        }
+                        if (viz.image_base64) {
+                            return `
+                                <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 16px;">
+                                    <h4 style="color: #00d4ff; margin: 0 0 12px 0;">${this.formatVizTitle(key)}</h4>
+                                    <img src="data:image/png;base64,${viz.image_base64}" 
+                                         style="width: 100%; border-radius: 4px; cursor: pointer;"
+                                         onclick="window.open(this.src, '_blank')"
+                                         title="Click to open full size">
+                                </div>
+                            `;
+                        }
+                        return '';
+                    }).join('')}
+                </div>
+            `}
+            
+            <div style="margin-top: 20px; text-align: center;">
+                <button onclick="this.closest('#visualizationsModal').remove()" style="
+                    background: rgba(255, 255, 255, 0.1);
+                    border: none;
+                    color: white;
+                    padding: 10px 30px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                ">Close</button>
+            </div>
+        `;
+        
+        modal.appendChild(content);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        
+        document.body.appendChild(modal);
+    }
+
+    /**
+     * Format visualization title
+     */
+    formatVizTitle(key) {
+        const titles = {
+            'word_cloud': '☁️ Word Cloud',
+            'word_frequency': '📊 Word Frequency',
+            'sentiment': '💭 Sentiment Analysis',
+            'pos': '📝 Parts of Speech',
+            'speakers': '👥 Speaker Comparison'
+        };
+        return titles[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
 }
 
 // ============ Global Functions for HTML onclick handlers ============
@@ -1561,6 +2046,14 @@ window.extractTopics = async function() {
 
 window.showCollections = async function() {
     await getApp().showCollectionsModal();
+};
+
+window.showNewsGatherer = async function() {
+    await getApp().showNewsGathererModal();
+};
+
+window.showVisualizations = async function() {
+    await getApp().showVisualizationsModal();
 };
 
 // Initialize when DOM is ready

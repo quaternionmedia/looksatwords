@@ -40,6 +40,13 @@ from .collection_models import (
 from .analytics_service import get_analytics_service
 from .topic_service import get_topic_extractor
 from .collection_service import get_collection_analytics_service
+from .news_service import (
+    get_news_service,
+    NewsArticle,
+    GatherRequest,
+    GenerateRequest,
+)
+from .visualization_service import get_visualization_service, PlotResponse
 
 # Import backend visualizer for analysis
 import sys
@@ -894,6 +901,240 @@ def _update_collection_stats(collection: Collection, session: Session):
     collection.total_messages = total_messages
     collection.total_words = total_words
     collection.avg_sentiment_compound = sentiment_sum / valid_count if valid_count > 0 else 0.0
+
+
+# ============ News Gathering & Generation Endpoints ============
+
+class NewsAnalyticsResponse(BaseModel):
+    """Response model for news with analytics."""
+    articles: List[NewsArticle]
+    analytics: Optional[dict] = None
+
+
+@app.get("/api/news/status")
+def news_service_status():
+    """Check availability of news-related services."""
+    news_service = get_news_service()
+    viz_service = get_visualization_service()
+    
+    return {
+        "gnews_available": news_service.gnews_available,
+        "llm_available": news_service.llm_available,
+        "matplotlib_available": viz_service.matplotlib_available,
+        "wordcloud_available": viz_service.wordcloud_available,
+        "bokeh_available": viz_service.bokeh_available
+    }
+
+
+@app.post("/api/news/gather", response_model=NewsAnalyticsResponse)
+def gather_news(request: GatherRequest):
+    """Gather news articles from GNews API.
+    
+    Fetches real news articles based on keyword, topic, location, or site.
+    Valid topics: WORLD, NATION, BUSINESS, TECHNOLOGY, ENTERTAINMENT, SPORTS, SCIENCE, HEALTH
+    """
+    news_service = get_news_service()
+    
+    try:
+        articles = news_service.gather_news(request)
+        
+        # Run analytics on gathered articles
+        analytics = None
+        if articles:
+            analytics = news_service.analyze_articles(articles)
+        
+        return NewsAnalyticsResponse(
+            articles=articles,
+            analytics=analytics
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/news/generate", response_model=NewsAnalyticsResponse)
+def generate_news(request: GenerateRequest):
+    """Generate synthetic news articles using LLM.
+    
+    Uses Ollama/llama3.1 to create realistic news headlines and descriptions
+    based on a seed word or topic.
+    """
+    news_service = get_news_service()
+    
+    try:
+        articles = news_service.generate_news(request)
+        
+        # Run analytics on generated articles
+        analytics = None
+        if articles:
+            analytics = news_service.analyze_articles(articles)
+        
+        return NewsAnalyticsResponse(
+            articles=articles,
+            analytics=analytics
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.post("/api/news/analyze")
+def analyze_news_articles(articles: List[NewsArticle]):
+    """Analyze a list of news articles.
+    
+    Performs sentiment analysis, word frequency, and POS tagging
+    on provided news articles.
+    """
+    news_service = get_news_service()
+    return news_service.analyze_articles(articles)
+
+
+# ============ Visualization Endpoints ============
+
+class WordCloudRequest(BaseModel):
+    """Request for generating a word cloud."""
+    words: List[str]
+    width: int = 800
+    height: int = 400
+    background_color: str = "#1a1a2e"
+
+
+class WordFrequencyChartRequest(BaseModel):
+    """Request for generating a word frequency chart."""
+    word_frequency: List[dict]  # [{word: str, count: int}]
+    top_n: int = 20
+    title: str = "Word Frequency"
+
+
+class SentimentChartRequest(BaseModel):
+    """Request for generating a sentiment chart."""
+    sentiment_data: List[dict]  # [{time, compound, positive, negative, neutral}]
+    title: str = "Sentiment Analysis"
+
+
+class POSChartRequest(BaseModel):
+    """Request for generating a POS pie chart."""
+    pos_distribution: dict
+    title: str = "Parts of Speech"
+
+
+class SpeakerChartRequest(BaseModel):
+    """Request for generating a speaker comparison chart."""
+    speaker_analytics: dict
+    title: str = "Speaker Comparison"
+
+
+@app.post("/api/visualize/word-cloud", response_model=PlotResponse)
+def generate_word_cloud(request: WordCloudRequest):
+    """Generate a word cloud visualization.
+    
+    Creates a word cloud image from a list of words.
+    Words can have duplicates to indicate frequency.
+    """
+    viz_service = get_visualization_service()
+    return viz_service.generate_word_cloud(
+        words=request.words,
+        width=request.width,
+        height=request.height,
+        background_color=request.background_color
+    )
+
+
+@app.post("/api/visualize/word-frequency", response_model=PlotResponse)
+def generate_word_frequency_chart(request: WordFrequencyChartRequest):
+    """Generate a horizontal bar chart of word frequencies."""
+    viz_service = get_visualization_service()
+    return viz_service.generate_word_frequency_chart(
+        word_frequency=request.word_frequency,
+        top_n=request.top_n,
+        title=request.title
+    )
+
+
+@app.post("/api/visualize/sentiment", response_model=PlotResponse)
+def generate_sentiment_chart(request: SentimentChartRequest):
+    """Generate a sentiment timeline/scatter chart."""
+    viz_service = get_visualization_service()
+    return viz_service.generate_sentiment_chart(
+        sentiment_data=request.sentiment_data,
+        title=request.title
+    )
+
+
+@app.post("/api/visualize/pos", response_model=PlotResponse)
+def generate_pos_chart(request: POSChartRequest):
+    """Generate a POS distribution pie chart."""
+    viz_service = get_visualization_service()
+    return viz_service.generate_pos_pie_chart(
+        pos_distribution=request.pos_distribution,
+        title=request.title
+    )
+
+
+@app.post("/api/visualize/speakers", response_model=PlotResponse)
+def generate_speaker_chart(request: SpeakerChartRequest):
+    """Generate a speaker comparison bar chart."""
+    viz_service = get_visualization_service()
+    return viz_service.generate_speaker_comparison_chart(
+        speaker_analytics=request.speaker_analytics,
+        title=request.title
+    )
+
+
+@app.get("/api/conversations/{conversation_id}/visualizations")
+def get_conversation_visualizations(
+    conversation_id: int,
+    session: Session = Depends(get_session)
+):
+    """Generate all visualizations for a conversation.
+    
+    Returns word cloud, word frequency, sentiment, POS, and speaker charts
+    as base64 encoded images.
+    """
+    conversation = session.get(Conversation, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    # Get analytics
+    visualizer = ThreadVisualizerBackend(use_nltk=False)
+    time_points = visualizer.parseConversation(conversation.text)
+    analytics_service = get_analytics_service()
+    analytics = analytics_service.analyze_conversation(time_points)
+    
+    viz_service = get_visualization_service()
+    visualizations = {}
+    
+    # Word cloud from all text
+    all_words = []
+    for tp in time_points:
+        all_words.extend(tp.get('text', '').lower().split())
+    if all_words:
+        visualizations['word_cloud'] = viz_service.generate_word_cloud(all_words)
+    
+    # Word frequency chart
+    word_freq = analytics['aggregated'].get('word_frequency', [])
+    if word_freq:
+        visualizations['word_frequency'] = viz_service.generate_word_frequency_chart(word_freq)
+    
+    # Sentiment chart
+    sentiment_timeline = analytics.get('sentiment_timeline', [])
+    if sentiment_timeline:
+        visualizations['sentiment'] = viz_service.generate_sentiment_chart(sentiment_timeline)
+    
+    # POS chart
+    pos_dist = analytics['aggregated'].get('pos_distribution', {})
+    if pos_dist:
+        visualizations['pos'] = viz_service.generate_pos_pie_chart(pos_dist)
+    
+    # Speaker comparison
+    speaker_analytics = analytics.get('speaker_analytics', {})
+    if speaker_analytics:
+        visualizations['speakers'] = viz_service.generate_speaker_comparison_chart(speaker_analytics)
+    
+    return {
+        "conversation_id": conversation_id,
+        "visualizations": {k: v.model_dump() for k, v in visualizations.items()}
+    }
 
 
 # Mount static files for frontend assets (css/, js/, etc.)

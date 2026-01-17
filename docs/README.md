@@ -16,10 +16,14 @@ Welcome to looksatwords! This guide will help you get started quickly.
 
 looksatwords is a full-stack conversation analyzer that combines:
 
-- **Language Analysis** - Gather, generate, and analyze text data
+- **Language Analysis** - Gather, generate, and analyze text data with NLTK
 - **Thread Visualization** - Interactive visualization of conversation threads
-- **REST API** - FastAPI backend with SQLite persistence
+- **REST API** - FastAPI backend with SQLite persistence (40+ endpoints)
 - **Web Frontend** - Browser-based interface for conversation analysis
+- **Topic Extraction** - NLP-based topic discovery (TF-IDF, NER, noun phrases)
+- **Collections** - Corpus-level analysis across multiple conversations
+- **News Tools** - Gather real news from GNews or generate with LLM
+- **Charts** - Word clouds, sentiment plots, speaker comparisons
 
 ## 30-Second Quick Start
 

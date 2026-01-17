@@ -46,10 +46,14 @@ This will:
 - **Sample** - Load example conversation
 - **Generate** - Create AI-generated conversation (requires Ollama)
 - **Analyze** - Process and visualize conversation
+- **Topics** - Extract topics using NLP (TF-IDF, NER, noun phrases)
 - **Reset** - Clear visualization
 - **Load** - Load saved conversation from database
 - **Export** - Download all conversations as JSON
 - **Import** - Upload conversations from JSON backup
+- **Collections** - Manage conversation collections for corpus-level analysis
+- **News** - Gather real news or generate synthetic articles with LLM
+- **Charts** - View word clouds, sentiment charts, and speaker comparisons
 
 ### Explore the API
 
@@ -84,6 +88,22 @@ For AI-powered text generation, install [Ollama](https://ollama.com/download):
 
 ```bash
 ollama run llama3.1
+```
+
+## Optional: GNews
+
+For gathering real news articles, install the gnews package:
+
+```bash
+uv pip install gnews
+```
+
+## Optional: Visualizations
+
+For generating charts (word clouds, sentiment plots, etc.):
+
+```bash
+uv pip install matplotlib wordcloud bokeh
 ```
 
 ## Verify Installation

@@ -23,11 +23,15 @@ Visit http://localhost:8000 to analyze conversations.
 
 ## Features
 
-- **Gather** - Collect language data from various sources
-- **Generate** - Create synthetic conversations using LLMs (Ollama)
-- **Analyze** - Sentiment analysis, word frequencies, parts of speech
+- **Gather** - Collect news articles from GNews API or other sources
+- **Generate** - Create synthetic conversations/articles using LLMs (Ollama)
+- **Analyze** - Sentiment analysis, word frequencies, parts of speech with NLTK
 - **Visualize** - Interactive conversation thread flow visualizations
 - **Analytics** - Real-time analytics panel with sentiment timeline
+- **Topics** - Dynamic topic extraction using NLP (TF-IDF, NER, noun phrases)
+- **Collections** - Group conversations for corpus-level analysis and comparison
+- **Charts** - Word clouds, sentiment plots, speaker comparisons, POS distribution
+- **News** - Gather real news or generate synthetic articles with analytics
 - **Import/Export** - Backup and restore conversation databases
 
 ## Documentation

@@ -86,9 +86,14 @@ uv run alembic upgrade head            # Apply migrations
 
 ## 📦 Features
 
-- REST API with interactive docs
+- REST API with interactive docs (40+ endpoints)
 - SQLModel ORM with migrations
 - Interactive thread visualizer
+- **Collections** - Corpus-level analysis across multiple conversations
+- **News Gathering** - Fetch articles from GNews API
+- **News Generation** - Create synthetic articles with LLM
+- **Topic Extraction** - NLP-based topic discovery (TF-IDF, NER)
+- **Visualizations** - Word clouds, sentiment charts, speaker comparisons
 - 70+ tests (unit + e2e)
 - CLI pipeline tools
 

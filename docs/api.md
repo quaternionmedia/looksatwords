@@ -16,10 +16,45 @@ The REST API is available at `http://localhost:8000` when the server is running.
 | GET | `/api/conversations` | List conversations |
 | GET | `/api/conversations/{id}` | Get conversation |
 | GET | `/api/conversations/{id}/analytics` | Get conversation analytics |
+| GET | `/api/conversations/{id}/visualizations` | Get all chart visualizations |
 | DELETE | `/api/conversations/{id}` | Delete conversation |
+| POST | `/api/extract-topics` | Extract topics from text |
 | POST | `/api/generate-conversation` | Generate conversation with LLM |
 | GET | `/api/database/export` | Export all conversations as JSON |
 | POST | `/api/database/import` | Import conversations from JSON |
+
+### Collections (Corpus Management)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/collections` | Create a new collection |
+| GET | `/api/collections` | List all collections |
+| GET | `/api/collections/{id}` | Get collection details |
+| PUT | `/api/collections/{id}` | Update collection |
+| DELETE | `/api/collections/{id}` | Delete collection |
+| POST | `/api/collections/{id}/conversations/{cid}` | Add conversation to collection |
+| DELETE | `/api/collections/{id}/conversations/{cid}` | Remove conversation from collection |
+| GET | `/api/collections/{id}/analytics` | Get aggregated corpus analytics |
+| GET | `/api/collections/{id}/compare` | Compare conversations in collection |
+
+### News Gathering & Generation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/news/status` | Check GNews/LLM service availability |
+| POST | `/api/news/gather` | Gather news articles from GNews |
+| POST | `/api/news/generate` | Generate synthetic news with LLM |
+| POST | `/api/news/analyze` | Analyze news articles |
+
+### Visualization Charts
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/visualize/word-cloud` | Generate word cloud image |
+| POST | `/api/visualize/word-frequency` | Generate frequency bar chart |
+| POST | `/api/visualize/sentiment` | Generate sentiment timeline |
+| POST | `/api/visualize/pos` | Generate POS pie chart |
+| POST | `/api/visualize/speakers` | Generate speaker comparison chart |
 
 ---
 
@@ -387,3 +422,367 @@ To initialize with migrations:
 ```bash
 uv run alembic upgrade head
 ```
+
+---
+
+## Collections (Corpus Management)
+
+Collections allow grouping multiple conversations for corpus-level analysis.
+
+### `POST /api/collections`
+
+Create a new collection.
+
+**Request:**
+```json
+{
+  "name": "Marketing Discussions",
+  "description": "All Q4 marketing team meetings",
+  "conversation_ids": [1, 2, 3]
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "Marketing Discussions",
+  "description": "All Q4 marketing team meetings",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "conversation_count": 3,
+  "total_messages": 45,
+  "total_words": 1250,
+  "avg_sentiment_compound": 0.15,
+  "conversation_ids": [1, 2, 3]
+}
+```
+
+### `GET /api/collections/{id}/analytics`
+
+Get aggregated analytics across all conversations in a collection.
+
+**Response:**
+```json
+{
+  "collection_id": 1,
+  "collection_name": "Marketing Discussions",
+  "conversation_count": 3,
+  "total_messages": 45,
+  "total_words": 1250,
+  "average_words_per_message": 27.8,
+  "avg_sentiment": {
+    "neg": 0.05,
+    "neu": 0.75,
+    "pos": 0.20,
+    "compound": 0.15
+  },
+  "overall_sentiment": "positive",
+  "sentiment_distribution": {
+    "positive": 2,
+    "neutral": 1,
+    "negative": 0
+  },
+  "word_frequency": [
+    {"word": "marketing", "count": 25},
+    {"word": "campaign", "count": 18}
+  ],
+  "pos_distribution": {...},
+  "unique_speakers": 5,
+  "speaker_stats": {...},
+  "conversation_summaries": [
+    {"id": 1, "title": "Q4 Planning", "messages": 15, "words": 400, "sentiment": "positive", "compound": 0.2}
+  ],
+  "common_topics": [
+    {"topic": "budget", "count": 3, "percentage": 100.0}
+  ]
+}
+```
+
+### `GET /api/collections/{id}/compare`
+
+Compare all conversations within a collection.
+
+**Response:**
+```json
+{
+  "collection_id": 1,
+  "conversations": [...],
+  "sentiment_comparison": {...},
+  "verbosity_comparison": {...},
+  "speaker_overlap": [...],
+  "common_words": [...]
+}
+```
+
+---
+
+## News Gathering & Generation
+
+### `GET /api/news/status`
+
+Check availability of news-related services.
+
+**Response:**
+```json
+{
+  "gnews_available": true,
+  "llm_available": true,
+  "matplotlib_available": true,
+  "wordcloud_available": true,
+  "bokeh_available": true
+}
+```
+
+### `POST /api/news/gather`
+
+Gather news articles from GNews API.
+
+**Request:**
+```json
+{
+  "keyword": "artificial intelligence",
+  "topic": "TECHNOLOGY",
+  "location": "United States",
+  "site": null,
+  "top": false,
+  "max_results": 5
+}
+```
+
+**Valid Topics:** `WORLD`, `NATION`, `BUSINESS`, `TECHNOLOGY`, `ENTERTAINMENT`, `SPORTS`, `SCIENCE`, `HEALTH`
+
+**Response:**
+```json
+{
+  "articles": [
+    {
+      "headline": "AI Breakthrough in Healthcare",
+      "description": "New AI system...",
+      "url": "https://...",
+      "published_date": "2024-01-15T10:00:00Z",
+      "publisher": "Tech News",
+      "source_type": "gathered"
+    }
+  ],
+  "analytics": {
+    "aggregated": {
+      "total_messages": 5,
+      "total_words": 250,
+      "overall_sentiment": "neutral",
+      "average_sentiment": {...}
+    }
+  }
+}
+```
+
+### `POST /api/news/generate`
+
+Generate synthetic news articles using LLM.
+
+**Request:**
+```json
+{
+  "seed_word": "climate change",
+  "count": 3
+}
+```
+
+**Response:**
+```json
+{
+  "articles": [
+    {
+      "headline": "Global Climate Summit Reaches Historic Agreement",
+      "description": "World leaders gathered...",
+      "url": null,
+      "published_date": "2024-01-15T10:00:00Z",
+      "publisher": "LLM Generated",
+      "source_type": "generated"
+    }
+  ],
+  "analytics": {...}
+}
+```
+
+**Requirements:** Ollama must be running with `llama3.1` model.
+
+---
+
+## Topic Extraction
+
+### `POST /api/extract-topics`
+
+Extract topics dynamically from text using NLP techniques.
+
+**Request:**
+```json
+{
+  "text": "[0:00] Alice: Let's discuss the marketing budget...\n[0:30] Bob: I think we need more for digital advertising..."
+}
+```
+
+**Response:**
+```json
+{
+  "topics": [
+    {
+      "name": "marketing budget",
+      "keywords": ["marketing", "budget", "spending", "allocation"],
+      "score": 8.5,
+      "normalized_score": 1.0,
+      "sources": ["noun_phrases", "tfidf"]
+    },
+    {
+      "name": "digital advertising",
+      "keywords": ["digital", "advertising", "online", "campaigns"],
+      "score": 6.2,
+      "normalized_score": 0.73,
+      "sources": ["noun_phrases", "collocations"]
+    }
+  ],
+  "dynamic_extraction": true,
+  "topic_count": 2
+}
+```
+
+**Extraction Methods:**
+- **TF-IDF:** Term frequency-inverse document frequency scoring
+- **Named Entity Recognition (NER):** Identifies people, organizations, locations
+- **Noun Phrase Extraction:** Extracts meaningful noun phrases
+- **Collocation Detection:** Finds words that frequently appear together
+
+---
+
+## Visualization Charts
+
+All visualization endpoints return base64-encoded PNG images.
+
+### `POST /api/visualize/word-cloud`
+
+Generate a word cloud from text.
+
+**Request:**
+```json
+{
+  "words": ["hello", "world", "hello", "python", "world", "world"],
+  "width": 800,
+  "height": 400,
+  "background_color": "#1a1a2e"
+}
+```
+
+**Response:**
+```json
+{
+  "plot_type": "word_cloud",
+  "image_base64": "iVBORw0KGgo...",
+  "data": {"word_count": 3}
+}
+```
+
+### `POST /api/visualize/word-frequency`
+
+Generate a horizontal bar chart of word frequencies.
+
+**Request:**
+```json
+{
+  "word_frequency": [
+    {"word": "hello", "count": 10},
+    {"word": "world", "count": 8}
+  ],
+  "top_n": 20,
+  "title": "Word Frequency"
+}
+```
+
+### `POST /api/visualize/sentiment`
+
+Generate a sentiment timeline chart.
+
+**Request:**
+```json
+{
+  "sentiment_data": [
+    {"time": 0, "compound": 0.5, "positive": 0.3, "negative": 0.0, "neutral": 0.7},
+    {"time": 30, "compound": -0.2, "positive": 0.1, "negative": 0.3, "neutral": 0.6}
+  ],
+  "title": "Sentiment Analysis"
+}
+```
+
+### `POST /api/visualize/pos`
+
+Generate a parts of speech pie chart.
+
+**Request:**
+```json
+{
+  "pos_distribution": {
+    "noun": 45,
+    "verb": 30,
+    "adjective": 15,
+    "adverb": 10
+  },
+  "title": "Parts of Speech"
+}
+```
+
+### `POST /api/visualize/speakers`
+
+Generate a speaker comparison bar chart.
+
+**Request:**
+```json
+{
+  "speaker_analytics": {
+    "Alice": {
+      "message_count": 10,
+      "total_words": 150,
+      "average_sentiment": {"compound": 0.3}
+    },
+    "Bob": {
+      "message_count": 8,
+      "total_words": 120,
+      "average_sentiment": {"compound": -0.1}
+    }
+  },
+  "title": "Speaker Comparison"
+}
+```
+
+### `GET /api/conversations/{id}/visualizations`
+
+Get all visualizations for a conversation in one request.
+
+**Response:**
+```json
+{
+  "conversation_id": 1,
+  "visualizations": {
+    "word_cloud": {
+      "plot_type": "word_cloud",
+      "image_base64": "..."
+    },
+    "word_frequency": {
+      "plot_type": "bar_chart",
+      "image_base64": "..."
+    },
+    "sentiment": {
+      "plot_type": "sentiment_scatter",
+      "image_base64": "..."
+    },
+    "pos": {
+      "plot_type": "pie_chart",
+      "image_base64": "..."
+    },
+    "speakers": {
+      "plot_type": "bar_chart",
+      "image_base64": "..."
+    }
+  }
+}
+```
+
+**Requirements:** matplotlib and wordcloud must be installed.
