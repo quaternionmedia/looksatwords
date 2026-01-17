@@ -899,3 +899,351 @@ body {
     outline: 2px solid var(--accent-blue);
     outline-offset: 2px;
 }
+
+/* ===== ANALYTICS SLIDE-UP PANEL ===== */
+.analytics-slide-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, rgba(20, 20, 35, 0.98) 0%, rgba(10, 10, 20, 0.99) 100%);
+    border-top: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 16px 16px 0 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5);
+    transition: height 0.3s ease-out;
+}
+
+/* Collapsed state - just show tabs */
+.analytics-slide-panel:not(.visible) {
+    height: auto !important;
+}
+
+.analytics-slide-panel:not(.visible) .analytics-resize-bar,
+.analytics-slide-panel:not(.visible) .analytics-content-scroll {
+    display: none;
+}
+
+/* Resize bar at top */
+.analytics-resize-bar {
+    height: 24px;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px 16px 0 0;
+}
+
+.analytics-resize-bar:hover {
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.resize-handle {
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    transition: background 0.2s ease;
+}
+
+.analytics-resize-bar:hover .resize-handle {
+    background: rgba(0, 212, 255, 0.6);
+}
+
+/* Tabs container - always visible */
+.analytics-slide-panel .analytics-tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px 12px;
+    margin: 0 12px 8px 12px;
+    border-radius: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+/* Collapsed tabs styling */
+.analytics-slide-panel:not(.visible) .analytics-tabs {
+    margin: 8px 12px;
+    border-radius: 8px 8px 0 0;
+}
+
+/* Scrollable content area */
+.analytics-content-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 16px 16px 16px;
+}
+
+.analytics-content {
+    min-height: 100px;
+}
+
+/* ===== ANALYTICS PANEL TABS ===== */
+.analytics-tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.analytics-tab {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.analytics-tab:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.analytics-tab.active {
+    background: var(--accent-blue);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+}
+
+.analytics-tab-icon {
+    font-size: 1.1em;
+}
+
+.tab-content {
+    animation: tabFadeIn 0.2s ease-out;
+}
+
+@keyframes tabFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Tab-specific content styles */
+.tab-section {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.tab-section-title {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--accent-blue);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* News tab specific */
+.news-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.service-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 8px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #888;
+}
+
+.status-dot.online {
+    background: #00ff88;
+    box-shadow: 0 0 6px rgba(0, 255, 136, 0.5);
+}
+
+.status-dot.offline {
+    background: #ff6b6b;
+}
+
+/* I/O tab specific */
+.io-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.saved-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.saved-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.saved-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.saved-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.saved-item-title {
+    font-weight: 500;
+    color: white;
+}
+
+.saved-item-meta {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.saved-item-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* Collections tab specific */
+.collections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.collection-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.collection-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(138, 43, 226, 0.3);
+}
+
+.collection-card.active {
+    border-color: var(--accent-purple);
+    background: rgba(138, 43, 226, 0.1);
+}
+
+.collection-name {
+    font-weight: 600;
+    color: white;
+    margin-bottom: 6px;
+}
+
+.collection-count {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Charts tab specific */
+.chart-container {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.chart-placeholder {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Form inputs in tabs */
+.tab-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+
+.tab-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.tab-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.tab-select {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.tab-select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 30px 20px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.empty-state-icon {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    font-size: 0.95em;
+}

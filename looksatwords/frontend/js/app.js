@@ -34,6 +34,10 @@ export class ConversationVisualizerApp {
         this.reporter = new AnalysisReporter(this.options.analysisId);
         this.apiClient = new ApiClient();
         this.analyticsPanel = new AnalyticsPanel('analyticsPanel');
+        
+        // Connect analytics panel to dependencies
+        this.analyticsPanel.setApiClient(this.apiClient);
+        this.analyticsPanel.onLoadConversation = (id) => this.loadConversation(id);
 
         // Data container
         this.data = new ConversationData();
@@ -115,7 +119,7 @@ export class ConversationVisualizerApp {
      */
     toggleAnalyticsPanel() {
         if (this.analyticsPanel) {
-            this.analyticsPanel.togglePopup();
+            this.analyticsPanel.toggle();
         }
     }
 
@@ -204,54 +208,66 @@ export class ConversationVisualizerApp {
         // Use the new endpoint that includes analytics
         const response = await this.apiClient.analyzeWithAnalytics(text);
         
+        console.log('Backend response:', response);
+        
         this.data.conversationId = response.conversation_id;
         this.data.totalDuration = response.total_duration;
+        
+        // Update analytics panel with conversation ID for charts tab
+        this.analyticsPanel.setConversationId(response.conversation_id);
 
         // Populate speakers
-        for (const [name, color] of Object.entries(response.speakers)) {
-            this.data.speakers.set(name, {
-                name: name,
-                color: color,
-                getInitial: () => name.charAt(0).toUpperCase()
-            });
+        console.log('Populating speakers:', response.speakers);
+        if (response.speakers && typeof response.speakers === 'object') {
+            for (const [name, color] of Object.entries(response.speakers)) {
+                this.data.speakers.set(name, {
+                    name: name,
+                    color: color,
+                    getInitial: () => name.charAt(0).toUpperCase()
+                });
+            }
         }
 
         // Populate threads
-        for (const threadData of response.threads) {
-            const thread = {
-                name: threadData.name,
-                color: threadData.color,
-                points: threadData.points.map(p => ({
-                    time: p.time,
-                    intensity: p.intensity,
-                    text: p.text,
-                    speaker: p.speaker,
-                    speakerInfo: { color: p.speaker_color }
-                })),
-                totalIntensity: threadData.total_intensity
-            };
-            this.data.threads.push(thread);
+        console.log('Populating threads:', response.threads);
+        if (response.threads && Array.isArray(response.threads)) {
+            for (const threadData of response.threads) {
+                const thread = {
+                    name: threadData.name,
+                    color: threadData.color,
+                    points: (threadData.points || []).map(p => ({
+                        time: p.time,
+                        intensity: p.intensity,
+                        text: p.text,
+                        speaker: p.speaker,
+                        speakerInfo: { color: p.speaker_color }
+                    })),
+                    totalIntensity: threadData.total_intensity
+                };
+                this.data.threads.push(thread);
+            }
         }
 
         // Populate tangents
-        for (const tangentData of response.tangents) {
-            const tangent = {
-                startTime: tangentData.start_time,
-                endTime: tangentData.end_time,
-                type: tangentData.tangent_type,
-                topics: tangentData.topics,
-                startText: tangentData.start_text,
-                resolutionText: tangentData.resolution_text,
-                sourceThread: this.data.threads[0] || null,
-                getColor: () => CONFIG.colors.tangents[tangentData.tangent_type] || CONFIG.colors.tangents.unresolved
-            };
-            this.data.tangents.push(tangent);
+        if (response.tangents && Array.isArray(response.tangents)) {
+            for (const tangentData of response.tangents) {
+                const tangent = {
+                    startTime: tangentData.start_time,
+                    endTime: tangentData.end_time,
+                    type: tangentData.tangent_type,
+                    topics: tangentData.topics,
+                    startText: tangentData.start_text,
+                    resolutionText: tangentData.resolution_text,
+                    sourceThread: this.data.threads[0] || null,
+                    getColor: () => CONFIG.colors.tangents[tangentData.tangent_type] || CONFIG.colors.tangents.unresolved
+                };
+                this.data.tangents.push(tangent);
+            }
         }
 
         // Render analytics panel if analytics data is present
         if (response.analytics || response.sentiment_timeline) {
-            this.analyticsPanel.toggle(true);
-            this.analyticsPanel.render({
+            this.analyticsPanel.update({
                 aggregated: response.analytics,
                 sentiment_timeline: response.sentiment_timeline,
                 speaker_analytics: response.speaker_analytics,
@@ -392,7 +408,7 @@ export class ConversationVisualizerApp {
         this.renderer.clear();
         this.reporter.clear();
         this.analyticsPanel.clear();
-        this.analyticsPanel.toggle(false);
+        this.analyticsPanel.hide();
 
         // Reset progress bar
         const progressFill = document.getElementById('progressFill');
@@ -595,8 +611,7 @@ export class ConversationVisualizerApp {
             const analytics = await this.apiClient.getConversationAnalytics(conversationId);
             
             if (analytics) {
-                this.analyticsPanel.toggle(true);
-                this.analyticsPanel.render(analytics);
+                this.analyticsPanel.update(analytics);
             }
         } catch (error) {
             console.warn('Could not fetch analytics:', error.message);
