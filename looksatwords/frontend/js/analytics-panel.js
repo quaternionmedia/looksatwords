@@ -36,6 +36,10 @@ export class AnalyticsPanel {
         
         // Tab definitions
         this.tabs = [
+            // HARNESS IS FIRST ON PURPOSE. The front door of this tool used to be
+            // a person pasting a transcript while the harness on the same machine
+            // held hundreds of indexed threads. Tab order is where that is fixed.
+            { id: 'harness', label: 'Harness', icon: '🧵' },
             { id: 'analytics', label: 'Analytics', icon: '📊' },
             { id: 'charts', label: 'Charts', icon: '📈' },
             { id: 'news', label: 'News', icon: '📰' },
@@ -137,6 +141,13 @@ export class AnalyticsPanel {
             btn.classList.toggle('active', btn.dataset.tab === tabId);
         });
         
+        // CLICKING A TAB OPENS THE PANEL. `.analytics-content-scroll` is
+        // `display: none` until the panel carries `.visible`, so a tab click
+        // used to render its content into a hidden container -- the tab bar
+        // reacted, the tab looked selected, and nothing appeared. Anyone
+        // clicking a tab is asking to see it.
+        this.show();
+
         // Render tab content
         this.renderCurrentTab();
     }
@@ -221,7 +232,15 @@ export class AnalyticsPanel {
     update(analyticsData) {
         this.analyticsData = analyticsData;
         this.hasData = true;
-        this.renderCurrentTab();
+
+        // DO NOT RE-RENDER THE HARNESS TAB FROM HERE. Analysing a thread ends
+        // in this call, and re-rendering would throw away the conversion report
+        // that names what the analysis cost -- and refetch the whole listing to
+        // replace it with the same rows. Somebody who analysed from the archive
+        // is still looking at the archive.
+        if (this.currentTab !== 'harness') {
+            this.renderCurrentTab();
+        }
         this.show();
     }
 
@@ -245,6 +264,9 @@ export class AnalyticsPanel {
         this.container.innerHTML = '';
         
         switch (this.currentTab) {
+            case 'harness':
+                this.renderHarnessTab();
+                break;
             case 'analytics':
                 this.renderAnalyticsTab();
                 break;
@@ -1215,5 +1237,323 @@ export class AnalyticsPanel {
             case 'negative': return '😞';
             default: return '😐';
         }
+    }
+
+    // ==================== HARNESS TAB ====================
+    //
+    // THE ARCHIVE IS THE FIRST TAB AND THAT IS THE POINT. Before this existed,
+    // the only way into this tool was a person pasting a transcript into a box,
+    // while the harness on this same machine held hundreds of real threads
+    // already indexed. This is the path that reads them.
+    //
+    // NOTHING HERE WRITES TO THE ARCHIVE. Every call is a GET except the
+    // analyse action, and that stores its result in *this* project's database.
+    // qmcp's record stays qmcp's.
+
+    escape(s) {
+        const d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    // An unreachable service is rendered as a reason and a fix, never as an
+    // empty list. The two look identical if you only draw the rows.
+    unreachableCard(title, reason, fix) {
+        return `
+            <div style="background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.35);
+                        border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                <div style="color: #ff6b6b; font-weight: 600; margin-bottom: 6px;">
+                    ${this.escape(title)} is not answering
+                </div>
+                <div style="color: #ccc; font-size: 12px; margin-bottom: 8px;">${this.escape(reason)}</div>
+                <div style="color: #888; font-size: 12px;">${this.escape(fix)}</div>
+                <div style="color: #666; font-size: 11px; margin-top: 8px; font-style: italic;">
+                    This is "nobody answered", which is a different thing from "there is nothing there".
+                </div>
+            </div>
+        `;
+    }
+
+    async renderHarnessTab() {
+        this.container.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <div class="loading-spinner-lg" style="margin: 0 auto 16px;"></div>
+                <div style="color: #888;">Asking the harness what it has indexed...</div>
+            </div>
+        `;
+
+        if (!this.apiClient) {
+            this.container.innerHTML = this.unreachableCard(
+                'The API client', 'The panel was never given one.', 'This is a wiring bug, not an environment problem.'
+            );
+            return;
+        }
+
+        let status, listing, neighbours;
+        try {
+            status = await this.apiClient.getHarnessStatus();
+        } catch (e) {
+            this.container.innerHTML = this.unreachableCard(
+                "This project's harness route", e.message,
+                'The dashboard server may be running an older build. Restart it.'
+            );
+            return;
+        }
+
+        if (!status.reachable) {
+            this.container.innerHTML =
+                this.unreachableCard('The thread archive', status.reason, status.fix) +
+                await this.renderNeighboursSection();
+            return;
+        }
+
+        try {
+            listing = await this.apiClient.getHarnessThreads({ limit: 40 });
+        } catch (e) {
+            this.container.innerHTML = this.unreachableCard('The thread listing', e.message, '');
+            return;
+        }
+
+        const rows = (listing.threads || []).map(t => this.harnessRow(t)).join('');
+
+        this.container.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.25);
+                            border-radius: 8px; padding: 12px 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap;">
+                        <div style="color: #00d4ff; font-weight: 600;">🧵 Harness thread archive</div>
+                        <div style="color: #888; font-size: 12px;">${this.escape(status.base_url)}</div>
+                    </div>
+                    <div style="display: flex; gap: 24px; margin-top: 10px; flex-wrap: wrap;">
+                        <div><span style="color:#888;font-size:12px;">indexed</span>
+                             <span style="color:#fff;font-weight:600;margin-left:6px;">${status.threads_indexed}</span></div>
+                        <div><span style="color:#888;font-size:12px;">listed here</span>
+                             <span style="color:#fff;font-weight:600;margin-left:6px;">${listing.listed}</span></div>
+                        <div><span style="color:#888;font-size:12px;">index generated</span>
+                             <span style="color:#fff;font-weight:600;margin-left:6px;">${this.escape(status.generated_at)}</span></div>
+                    </div>
+                    <!-- The harness's own caveat, carried rather than paraphrased. -->
+                    <div style="color:#777;font-size:11px;margin-top:10px;font-style:italic;">
+                        ${this.escape(status.note)}
+                    </div>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px;padding:0 2px;">
+                    <span style="color:#888;font-size:12px;">prose turns to read</span>
+                    <select id="harnessLimit" style="background:rgba(0,0,0,0.4);color:#fff;
+                            border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 8px;font-size:12px;">
+                        <option value="60">60 — readable</option>
+                        <option value="150" selected>150 — dense</option>
+                        <option value="400">400 — everything legible turns to noise</option>
+                    </select>
+                    <!-- THE LIMIT IS A READING DECISION, SO IT BELONGS TO THE READER.
+                         At 400 turns the graph is technically correct and visually
+                         unusable; at 60 a long thread's shape is legible and the
+                         report says what was left out. Neither is the right default
+                         for every thread, which is why this is a control. -->
+                    <span style="color:#666;font-size:11px;font-style:italic;">
+                        whatever you pick, the result says how much it left out
+                    </span>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:6px;">${rows}</div>
+
+                <div id="harnessDetail"></div>
+                <div id="harnessNeighbours"></div>
+            </div>
+        `;
+
+        this.container.querySelectorAll('[data-harness-analyze]').forEach(btn => {
+            btn.addEventListener('click', () => this.analyzeHarnessThread(
+                btn.dataset.source, btn.dataset.id, btn.dataset.title
+            ));
+        });
+        this.container.querySelectorAll('[data-harness-deltas]').forEach(btn => {
+            btn.addEventListener('click', () => this.showHarnessDeltas(
+                btn.dataset.source, btn.dataset.id, btn.dataset.title
+            ));
+        });
+
+        const nb = this.container.querySelector('#harnessNeighbours');
+        if (nb) nb.innerHTML = await this.renderNeighboursSection();
+    }
+
+    harnessRow(t) {
+        const colors = { 'claude-code': '#00ff88', 'claude': '#c1a1d3', 'chatgpt': '#ffd93d' };
+        const c = colors[t.source] || '#888';
+        return `
+            <div style="display:flex;align-items:center;gap:12px;background:rgba(0,0,0,0.28);
+                        border-radius:6px;padding:9px 12px;">
+                <span style="color:${c};font-size:10px;font-weight:700;min-width:82px;
+                             text-transform:uppercase;letter-spacing:.4px;">${this.escape(t.source)}</span>
+                <span style="color:#fff;font-size:13px;flex:1;overflow:hidden;
+                             text-overflow:ellipsis;white-space:nowrap;">${this.escape(t.title)}</span>
+                <span style="color:#888;font-size:11px;min-width:74px;text-align:right;">${t.turns} turns</span>
+                <button class="btn btn--sm btn--cyan" data-harness-analyze
+                        data-source="${this.escape(t.source)}" data-id="${this.escape(t.id)}"
+                        data-title="${this.escape(t.title)}">Analyze</button>
+                <button class="btn btn--sm btn--purple" data-harness-deltas
+                        data-source="${this.escape(t.source)}" data-id="${this.escape(t.id)}"
+                        data-title="${this.escape(t.title)}">Deltas</button>
+            </div>
+        `;
+    }
+
+    async analyzeHarnessThread(source, id, title) {
+        const detail = this.container.querySelector('#harnessDetail');
+        if (detail) {
+            detail.innerHTML = `
+                <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:16px;">
+                    <span class="loading-spinner-sm"></span>
+                    <span style="color:#888;margin-left:8px;">Reading ${this.escape(title)} off the archive...</span>
+                </div>`;
+        }
+
+        let result;
+        try {
+            const sel = this.container.querySelector('#harnessLimit');
+            const limit = sel ? parseInt(sel.value, 10) : 150;
+            result = await this.apiClient.analyzeHarnessThread(source, id, limit);
+        } catch (e) {
+            if (detail) detail.innerHTML = this.unreachableCard('That thread', e.message, '');
+            return;
+        }
+
+        const c = result.conversion;
+        // THE CONVERSION REPORT IS RENDERED, NOT HIDDEN. Three different counts,
+        // three different facts. A panel that showed only `turns_used` would be
+        // describing an excerpt as if it were the conversation.
+        if (detail) {
+            detail.innerHTML = `
+                <div style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.3);
+                            border-radius:8px;padding:14px 16px;">
+                    <div style="color:#00ff88;font-weight:600;margin-bottom:10px;">
+                        Analysed — now showing in the visualization above
+                    </div>
+                    <div style="display:flex;gap:22px;flex-wrap:wrap;font-size:12px;">
+                        <div><span style="color:#888;">turns in thread</span>
+                             <b style="color:#fff;margin-left:6px;">${c.turns_total}</b></div>
+                        <div><span style="color:#888;">carrying prose</span>
+                             <b style="color:#fff;margin-left:6px;">${c.turns_with_text}</b></div>
+                        <div><span style="color:#888;">used here</span>
+                             <b style="color:#fff;margin-left:6px;">${c.turns_used}</b></div>
+                        <div><span style="color:#888;">threads found</span>
+                             <b style="color:#fff;margin-left:6px;">${(result.threads || []).length}</b></div>
+                        <div><span style="color:#888;">tangents</span>
+                             <b style="color:#fff;margin-left:6px;">${(result.tangents || []).length}</b></div>
+                    </div>
+                    ${c.truncated ? `
+                        <div style="color:#ffd93d;font-size:11px;margin-top:10px;">
+                            Cut at ${c.limit} prose turns of ${c.turns_with_text}. This is an excerpt and the
+                            numbers above describe the excerpt.
+                        </div>` : ''}
+                    ${c.turns_without_text > 0 ? `
+                        <div style="color:#777;font-size:11px;margin-top:6px;font-style:italic;">
+                            ${c.turns_without_text} turns carried no prose — tool calls and their results,
+                            which this project does not read.
+                        </div>` : ''}
+                    <div style="color:#777;font-size:11px;margin-top:6px;font-style:italic;">
+                        Whitespace inside each turn was collapsed so the line-oriented parser could read it.
+                    </div>
+                </div>
+            `;
+        }
+
+        // Hand the analysed conversation to the visualization, through whatever
+        // the app already uses to draw one. No second rendering path.
+        if (window.renderHarnessResult) window.renderHarnessResult(result);
+    }
+
+    async showHarnessDeltas(source, id, title) {
+        const detail = this.container.querySelector('#harnessDetail');
+        if (!detail) return;
+        detail.innerHTML = `<div style="color:#888;padding:12px;">Asking the harness what ${this.escape(title)} settled...</div>`;
+
+        let d;
+        try {
+            d = await this.apiClient.getHarnessThreadDeltas(source, id);
+        } catch (e) {
+            detail.innerHTML = this.unreachableCard('The deltas for that thread', e.message, '');
+            return;
+        }
+
+        const deltas = d.deltas || [];
+        // Zero deltas is a real answer from the harness, and it is not the same
+        // as the harness being unavailable. Say which one this is.
+        const body = deltas.length === 0
+            ? `<div style="color:#888;font-size:12px;">The harness answered, and says this thread settled nothing.
+                   That is its answer, not a missing one.</div>`
+            : deltas.map(x => {
+                const dd = x.delta || {};
+                const links = (x.links || []).map(l =>
+                    `<div style="color:#888;font-size:11px;margin-top:3px;">
+                        <span style="color:#666;">${this.escape(l.link_type)}</span>
+                        ${this.escape(l.target_name)}
+                     </div>`).join('');
+                return `
+                    <div style="background:rgba(0,0,0,0.28);border-radius:6px;padding:10px 12px;margin-bottom:8px;">
+                        <div style="color:#fff;font-weight:600;font-size:13px;">${this.escape(dd.title)}</div>
+                        <div style="margin-top:5px;display:flex;gap:14px;font-size:11px;">
+                            <span style="color:#00d4ff;">${this.escape(dd.phase)}</span>
+                            <span style="color:#888;">${this.escape(dd.delta_type)}</span>
+                            <span style="color:#888;">${this.escape(x.project)}</span>
+                        </div>
+                        ${links}
+                    </div>`;
+            }).join('');
+
+        detail.innerHTML = `
+            <div style="background:rgba(193,161,211,0.06);border:1px solid rgba(193,161,211,0.3);
+                        border-radius:8px;padding:14px 16px;">
+                <div style="color:#c1a1d3;font-weight:600;margin-bottom:4px;">What the harness says this settled</div>
+                <!-- qmcp's answer, rendered. This project does not compute a second opinion
+                     of what a conversation decided from the same turns. -->
+                <div style="color:#777;font-size:11px;margin-bottom:10px;font-style:italic;">
+                    qmcp's own answer, rendered rather than recomputed. It owns this record;
+                    this panel reads the turns underneath it.
+                </div>
+                ${body}
+                <div style="color:#666;font-size:11px;margin-top:8px;">
+                    perspective: ${this.escape(d.perspective)} · relations: ${(d.relations || []).length} · spent: ${d.spent}
+                </div>
+            </div>
+        `;
+    }
+
+    async renderNeighboursSection() {
+        let data;
+        try {
+            data = await this.apiClient.getHarnessNeighbours();
+        } catch (e) {
+            return '';
+        }
+        const rows = (data.neighbours || []).map(n => `
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;
+                        background:rgba(0,0,0,0.22);border-radius:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;
+                             background:${n.reachable ? '#00ff88' : '#555'};"></span>
+                <span style="color:#fff;font-size:13px;min-width:96px;">${this.escape(n.name)}</span>
+                <span style="color:#888;font-size:11px;flex:1;">${this.escape(n.what)}</span>
+                ${n.reachable
+                    ? `<a href="${this.escape(n.url)}" target="_blank"
+                          style="color:#00d4ff;font-size:12px;">open →</a>`
+                    : `<span style="color:#666;font-size:11px;">not running</span>`}
+            </div>
+        `).join('');
+
+        return `
+            <div style="margin-top:4px;">
+                <div style="color:#888;font-size:12px;font-weight:600;margin-bottom:8px;">
+                    Where a thread goes next
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">${rows}</div>
+                <!-- A LINK IS NOT AN INTEGRATION. These report whether anybody is home
+                     and nothing else; neither service is imported or depended on. -->
+                <div style="color:#666;font-size:11px;margin-top:8px;font-style:italic;">
+                    Links, not integrations. This panel reports whether each is answering and
+                    invents nothing about what it would have said.
+                </div>
+            </div>
+        `;
     }
 }
