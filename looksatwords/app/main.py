@@ -263,18 +263,7 @@ def get_conversation_analytics(
     
     return AnalyticsResponse(
         conversation_id=conversation_id,
-        aggregated=AggregatedAnalytics(
-            total_messages=aggregated["total_messages"],
-            total_words=aggregated["total_words"],
-            average_words_per_message=aggregated["average_words_per_message"],
-            average_sentiment=SentimentScore(**aggregated["average_sentiment"]),
-            overall_sentiment=aggregated["overall_sentiment"],
-            word_frequency=[
-                WordFrequencyItem(word=wf["word"], count=wf["count"])
-                for wf in aggregated["word_frequency"]
-            ],
-            pos_distribution=aggregated["pos_distribution"],
-        ),
+        aggregated=AggregatedAnalytics.model_validate(aggregated),
         sentiment_timeline=[
             SentimentTimelinePoint(
                 time=st["time"],
@@ -359,18 +348,7 @@ def analyze_conversation_with_analytics(
         speakers=conversation.speakers,
         threads=conversation.threads,
         tangents=conversation.tangents,
-        analytics=AggregatedAnalytics(
-            total_messages=aggregated["total_messages"],
-            total_words=aggregated["total_words"],
-            average_words_per_message=aggregated["average_words_per_message"],
-            average_sentiment=SentimentScore(**aggregated["average_sentiment"]),
-            overall_sentiment=aggregated["overall_sentiment"],
-            word_frequency=[
-                WordFrequencyItem(word=wf["word"], count=wf["count"])
-                for wf in aggregated["word_frequency"]
-            ],
-            pos_distribution=aggregated["pos_distribution"],
-        ),
+        analytics=AggregatedAnalytics.model_validate(aggregated),
         sentiment_timeline=[
             SentimentTimelinePoint(
                 time=st["time"],

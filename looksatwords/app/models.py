@@ -91,6 +91,11 @@ class AggregatedAnalytics(SQLModel):
     """Aggregated analytics for a conversation."""
     total_messages: int
     total_words: int
+    # No defaults. A default here is indistinguishable from a measurement once
+    # it is rendered, which is how "Unique Words 0" reached the demo's front
+    # panel for a conversation holding 45 words.
+    unique_words: int
+    speaker_count: int
     average_words_per_message: float
     average_sentiment: SentimentScore
     overall_sentiment: str

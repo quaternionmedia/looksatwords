@@ -224,6 +224,12 @@ class ConversationAnalyticsService:
         return {
             "total_messages": len(points),
             "total_words": total_words,
+            # Both of these were already sitting here and were not returned, so
+            # the panel's Overview card read them as absent and rendered `0`
+            # through a `|| 0`. A count of zero and a field nobody sent are
+            # different claims and the card could not tell them apart.
+            "unique_words": len(set(all_words)),
+            "speaker_count": len({p["speaker"] for p in points if p.get("speaker")}),
             "average_words_per_message": total_words / len(points) if points else 0,
             "average_sentiment": avg_sentiment,
             "overall_sentiment": overall_sentiment,
@@ -307,6 +313,10 @@ class ConversationAnalyticsService:
         return {
             "total_messages": 0,
             "total_words": 0,
+            # Genuinely zero here: this branch is reached when there are no
+            # points at all, which is a real count and not a missing field.
+            "unique_words": 0,
+            "speaker_count": 0,
             "average_words_per_message": 0,
             "average_sentiment": {"neg": 0.0, "neu": 0.0, "pos": 0.0, "compound": 0.0},
             "overall_sentiment": "neutral",

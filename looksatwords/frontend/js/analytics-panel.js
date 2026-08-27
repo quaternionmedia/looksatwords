@@ -1016,6 +1016,12 @@ export class AnalyticsPanel {
     // ==================== ANALYTICS RENDERING HELPERS ====================
     
     renderOverviewCard(aggregated) {
+        // A count of zero and a field the API did not send are different
+        // claims. `|| 0` collapsed them, and the card read "Unique Words 0"
+        // for a conversation with 45 words in it -- confidently, in the
+        // demo's front panel. An em dash says nobody sent it.
+        const absent = (v) => (v === undefined || v === null ? '—' : v);
+
         const card = document.createElement('div');
         card.style.cssText = `
             background: rgba(0, 0, 0, 0.3);
@@ -1040,11 +1046,11 @@ export class AnalyticsPanel {
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: #888;">Unique Words</span>
-                    <span style="color: white; font-weight: 600;">${aggregated.unique_words || 0}</span>
+                    <span style="color: white; font-weight: 600;">${absent(aggregated.unique_words)}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: #888;">Speakers</span>
-                    <span style="color: white; font-weight: 600;">${aggregated.speaker_count || 0}</span>
+                    <span style="color: white; font-weight: 600;">${absent(aggregated.speaker_count)}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 4px;">
                     <span style="color: #888;">Sentiment</span>
