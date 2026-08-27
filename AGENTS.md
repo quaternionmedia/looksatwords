@@ -193,7 +193,7 @@ LOOKSATWORDS_OLLAMA_MODEL=qwen2.5-coder:7b uv run looksatwords serve --no-open
 
 ```sh
 uv run pytest -m "not e2e"               # the default suite
-uv run pytest -m e2e                     # browser tests; needs `playwright install`
+uv run pytest -m e2e                     # browser tests; see the note below
 uv run pytest -m llm                     # reaches a live Ollama on loopback
 ```
 
@@ -203,6 +203,14 @@ against the corpus root as the working directory, and an unbounded `pytest`
 here collects those and reports red for files this repository does not own.
 `norecursedirs` is the half that still holds when pytest is handed an explicit
 path, which is what makes `testpaths` inert.
+
+**The browser suite needs two things this project cannot start for you**: a
+chromium from `uv run playwright install chromium`, and a server already
+listening — `uv run looksatwords serve --no-open` in another terminal. Its
+fixture skips only when chromium will not launch. It used to wrap the whole
+fixture in `except Exception` and report *every* failure as "browsers not
+installed", including its own call to a method that does not exist, so the
+entire browser suite skipped on a machine that could run it.
 
 **Read a skip before reading the summary.** `test_generator` is the one test
 that talks to a live model. When Ollama is down, or is up without the model
