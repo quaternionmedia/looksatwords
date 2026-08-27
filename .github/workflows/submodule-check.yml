@@ -1,0 +1,73 @@
+name: Submodule refs
+
+# SEED FILE: copy verbatim into a forking project's .github/workflows/.
+#
+# Verifies every submodule's pinned commit exists on that submodule's own
+# remote, so "committed a pointer bump without pushing the submodule" is caught
+# here with an actionable message, rather than later as a cryptic
+# actions/checkout failure in whichever workflow happens to fetch first:
+#
+#   fatal: remote error: upload-pack: not our ref <sha>
+#
+# Two QM projects have hit exactly that. qmetronome's v0.0.28 Alpha Release
+# build broke on it and the project wrote this check in response; apothecary
+# hit the identical error on 2026-07-21 with no check, because nothing carried
+# qmetronome's fix across. Carrying it is what the seed is for.
+#
+# Unlike the ADR lint, this check is SELF-CONTAINED rather than run from the
+# governance submodule -- it has to be. It checks out with submodules: false on
+# purpose, since the submodule fetch is the thing being guarded and letting it
+# run first would mask this check's clearer error. A script living inside the
+# submodule would not be present to run.
+#
+# Triggers on every push and PR, deliberately broader than a main/PR-only
+# workflow: a stale pointer can be introduced on any branch, and the breakage
+# surfaces later, at tag time, in a different workflow.
+
+on:
+  push:
+  pull_request:
+
+# One run per branch per workflow. A second push supersedes the first: nobody
+# reads the result of a run whose commit has already been replaced, and the
+# minutes are real -- 55 of this repository's 129 runs on 2026-08-11 came from
+# five iterative pushes to two pull request branches, where only the last
+# mattered.
+#
+# Cancellation is scoped to pull requests deliberately. On the default branch
+# and on a project branch the run IS the record of what that commit reported,
+# and cancelling it to start a newer one destroys the only evidence that the
+# earlier commit was ever checked.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  QM_SUBMODULE: governance/qm
+
+permissions:
+  contents: read
+
+jobs:
+  check-submodule-refs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      # The governance submodule holds the script, so it is the one submodule
+      # this job must actually check out. Every other one is left alone on
+      # purpose: an optional or private submodule that the runner has no
+      # credentials for would fail the checkout before this job could report
+      # anything, which is how a project with one private submodule ended up
+      # with three red workflows that had never run a line of their own logic.
+      - name: Check out the governance submodule only
+        run: git submodule update --init --depth 1 "$QM_SUBMODULE"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify submodule commits are pushed to their own remotes
+        run: python "$QM_SUBMODULE/project-seed/ci/check_submodule_pins.py"

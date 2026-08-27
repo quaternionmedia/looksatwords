@@ -1,0 +1,65 @@
+# Every commit a branch adds carries a signature.
+#
+# SEED FILE: copy verbatim into .github/workflows/. Only the workflow is copied
+# -- it runs check_signatures.py out of the governance submodule.
+#
+# The rule is records/DRAFT-human-only-contributorship.md: attribution is only
+# a claim if something attests it. Nothing in this org checked that until
+# 2026-08-15, and signing had silently stopped three days earlier when a session
+# added a flag disabling it.
+#
+# WHAT THIS FAILS, AND WHO CAN FIX IT
+#
+# It fails a pull request carrying its own unsigned commits. Only `base..head`
+# is checked: failing on inherited history would fail every pull request here
+# forever, for commits their author cannot re-sign. The remedy belongs to the
+# branch author -- re-sign, or say in the description why not.
+#
+# WHAT IT DOES NOT COVER
+#
+#   - Signature verification needs the signer's public key. A runner has none,
+#     so `git log --format=%G?` on CI reports on the runner's empty keyring and
+#     not on the commit. That is the scaffolding describing itself, and it is
+#     why this job asks the forge -- which verified every commit server-side
+#     when it received them -- rather than re-deriving a verdict it cannot
+#     reach. `--source git` is the local mode, for a machine that has the key.
+#   - Whether the signer is the person in the author field. It reads what the
+#     key attests and does not maintain a trust store; a good signature by an
+#     unknown key passes, because a trust store nobody maintains fails honest
+#     work.
+#   - Anything about content. A signed commit is attested, not correct.
+#   - Merge commits, which are excluded: a merge you did not author carries the
+#     signature of whoever pressed the button.
+
+name: Commit signatures
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  signatures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          # The whole range must be readable. A shallow checkout reports commits
+          # as missing rather than as unsigned, which is a different finding.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Every commit this branch adds carries a signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python governance/qm/project-seed/ci/check_signatures.py --base-ref "origin/$GITHUB_BASE_REF" --head-ref "$GITHUB_SHA" --source host --repo "$GITHUB_REPOSITORY"

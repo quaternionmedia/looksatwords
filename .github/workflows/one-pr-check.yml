@@ -1,0 +1,72 @@
+# One open pull request per repository, per contributor.
+#
+# SEED FILE: copy verbatim into .github/workflows/, the same discipline as
+# adr-lint.yml. Only the workflow is copied -- it runs check_one_pr.py out of
+# the governance submodule, so a fix to the rule reaches every project on its
+# next pin bump instead of needing N copies updated.
+#
+# The rule and the reasoning are handbook/async-contract.md §1. In short: two
+# pull requests that must merge in an order are a sequencing puzzle, and nothing
+# inside a session makes another session's branches visible to it. It is not a
+# review-bandwidth limit -- a green pull request is merged by its author and
+# frees its own slot.
+#
+# WHAT THIS FAILS, AND WHO CAN FIX IT
+#
+# It fails the pull request whose author already holds an open slot in this
+# repository -- and it fails every one of them, not just the newest, because
+# the tool cannot know which one the contributor means to keep. That is the
+# intended shape: the remedy is a human closing or folding until one is left,
+# and a check that quietly picked a survivor would be making that call.
+#
+# Automation authors are excluded. A contributor cannot close Dependabot's pull
+# request to make room for their own, so failing them for it would be a red
+# check with no action attached.
+
+name: One PR per contributor
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+# One run per branch per workflow. A second push supersedes the first: nobody
+# reads the result of a run whose commit has already been replaced, and the
+# minutes are real -- 55 of this repository's 129 runs on 2026-08-11 came from
+# five iterative pushes to two pull request branches, where only the last
+# mattered.
+#
+# Cancellation is scoped to pull requests deliberately. On the default branch
+# and on a project branch the run IS the record of what that commit reported,
+# and cancelling it to start a newer one destroys the only evidence that the
+# earlier commit was ever checked.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  slot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: This contributor holds at most one open pull request here
+        run: |
+          python governance/qm/project-seed/ci/check_one_pr.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --contributor "$PR_AUTHOR"
+        env:
+          # The token is what lets `gh api` read the list at all. Without it the
+          # script exits non-zero rather than reporting a repository it could
+          # not read as compliant.
+          GH_TOKEN: ${{ github.token }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
