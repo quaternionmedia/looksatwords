@@ -158,3 +158,70 @@ what was actually verified.
 
 <!-- Project-specific setup commands, test commands, and conventions belong
      below this line; this seed only carries the governance-discovery part. -->
+
+## What this project is
+
+looksatwords reads natural language and says what was in it: who spoke, which
+topics were live and when, where a conversation went off and whether it came
+back, and what the sentiment did along the way. The input is prose — a
+conversation transcript, a gathered news article, a generated one. The output
+is structure over that prose.
+
+**It is not a code tool.** `codecartographer` maps source code as graphs and
+this maps language as threads; both draw a picture of a corpus and the corpus
+is the whole difference. A change here that starts parsing Python is a change
+that belongs there.
+
+## Setup
+
+```sh
+uv sync
+uv run looksatwords serve --no-open      # http://127.0.0.1:8000, API docs at /docs
+```
+
+Generation needs a local Ollama. **The host is not a setting and the model is.**
+`looksatwords/llm.py` holds both: `HOST` is loopback because a client that could
+be pointed at another machine is how "generated on this machine" stops being
+true, and `MODEL` reads `LOOKSATWORDS_OLLAMA_MODEL` because which model a box
+has pulled is that box's business.
+
+```sh
+LOOKSATWORDS_OLLAMA_MODEL=qwen2.5-coder:7b uv run looksatwords serve --no-open
+```
+
+## Tests
+
+```sh
+uv run pytest -m "not e2e"               # the default suite
+uv run pytest -m e2e                     # browser tests; needs `playwright install`
+uv run pytest -m llm                     # reaches a live Ollama on loopback
+```
+
+`testpaths` is `looksatwords/tests` and `norecursedirs` names `governance`.
+Both are load-bearing: the vendored corpus carries its own suite, which asserts
+against the corpus root as the working directory, and an unbounded `pytest`
+here collects those and reports red for files this repository does not own.
+`norecursedirs` is the half that still holds when pytest is handed an explicit
+path, which is what makes `testpaths` inert.
+
+**Read a skip before reading the summary.** `test_generator` is the one test
+that talks to a live model. When Ollama is down, or is up without the model
+this project asks for, it skips with the reason and the command that fixes it.
+That is the "nobody could look" answer and it is not a pass.
+
+## Gates
+
+```sh
+uv run python governance/qm/project-seed/ci/run_workflows_locally.py
+```
+
+Six workflows are copied verbatim from `governance/qm/project-seed/ci/` —
+adr-lint, one-pr-check, reuse-lint, signature-check, submodule-check,
+tag-claims. Only the YAML is copied; each runs a script out of the submodule,
+so a fix to a rule arrives on the next pin bump rather than needing this copy
+edited.
+
+`reuse-lint`'s install step fails under the local runner because this project's
+uv-managed venv has no `pip`. The lint itself is fine —
+`uvx --with charset-normalizer reuse lint` passes — so that one line is an
+environment difference and not a finding.
