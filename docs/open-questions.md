@@ -35,6 +35,35 @@ actioned.
 | 3 | `visualizer.js` and `visualizer.html` are the pre-modular UI. They are still mounted as static files and still carry the largest block of tests in `test_frontend.py`, and nothing in `index.html` links them. Retire, or keep as a supported second entry point? | `looksatwords/app/main.py` mounts them; `grep` finds no link from `index.html` |
 | 4 | The development database holds conversations written by an assistant session while demonstrating the analysis path, alongside at least one a person made. Nothing distinguishes them. Should demo runs use a scratch database? | `GET /api/conversations` |
 
+## Found in the harness seam, and not this project's to fix
+
+**qmcp's thread index lists threads its own read route does not have.** Of 30
+threads sampled at random from `GET /v1/threads` on 2026-08-26, every `chatgpt`
+thread (10 of 10) and every `claude` thread (6 of 6) resolved through
+`GET /v1/threads/{source}/{id}`; 10 of 14 `claude-code` threads returned 404.
+The index and the archive disagree, for one source.
+
+This project reads the seam and does not repair the other side, so what it does
+is say which failure it hit: a 409 with "the archive answered and does not hold
+this, though its index lists it", against a 503 when nobody answered at all.
+Both were one 502 and read as a single problem. Settling it is qmcp's.
+
+**Most turns in the archive are not prose.** The same measurement: one
+claude-code thread of 4,715 turns carried text in 776 of them, the rest being
+tool calls and their results. That is not a defect anywhere — it is what the
+corpus is — but it decides how a limit has to be counted. Capping raw turns
+took the first 300 and emitted 18 lines of conversation.
+
+## Rough edges in the harness view, named rather than hidden
+
+- **At 400 prose turns the thread graph is correct and unreadable.** The tab
+  offers 60 / 150 / 400 and says what each leaves out; nothing yet summarises a
+  long thread rather than drawing all of it.
+- **The Thread Analysis cards below the graph print every timestamp** in a
+  thread's evolution. On a 200-message conversation that is a wall of numbers.
+- **`dossier` and `codecarto` are links, not integrations.** The panel reports
+  whether each is answering and invents nothing about what it would have said.
+
 ## Not questions, but do not read them as settled
 
 - **The tag gate has never run.** `tag-claims.yml` is wired and
