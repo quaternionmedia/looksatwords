@@ -45,8 +45,15 @@ class TestFrontendStructure:
         for element in required_elements:
             assert element in frontend_html, f"Missing required element: {element}"
 
-    def test_frontend_has_required_buttons(self, frontend_html):
-        """Test that frontend has required buttons."""
+    def test_frontend_shell_has_its_own_buttons(self, frontend_html):
+        """The controls the static shell owns, which is not every control.
+
+        Export and Import are deliberately absent here: analytics-panel.js
+        writes them into the DOM when the panel renders, so asserting them
+        against the shell file measures where the markup lives rather than
+        whether the button reaches the user. `test_e2e.py` is the assertion
+        that can tell those apart; this one only pins the shell.
+        """
         buttons = [
             'Analyze',
             'Play',
@@ -55,11 +62,16 @@ class TestFrontendStructure:
             'Sample',
             'Generate',
             'Load',
-            'Export',
-            'Import'
         ]
         for button in buttons:
             assert button in frontend_html, f"Missing button: {button}"
+
+    def test_export_and_import_are_rendered_by_the_panel(self):
+        """Where the two controls the shell does not carry actually come from."""
+        panel = (Path(__file__).parent.parent
+                 / "frontend" / "js" / "analytics-panel.js").read_text(encoding='utf-8')
+        assert 'Export Database' in panel
+        assert 'Import Database' in panel
 
     def test_frontend_has_styling(self, frontend_html):
         """Test that frontend includes CSS styling."""
@@ -782,8 +794,9 @@ class TestAnalyticsPanelModule:
         assert "export class AnalyticsPanel" in analytics_panel_js
 
     def test_has_render_method(self, analytics_panel_js):
-        """Test that AnalyticsPanel has render method."""
-        assert "render(" in analytics_panel_js
+        """The panel renders per tab; there is no single `render()` any more."""
+        assert "renderCurrentTab(" in analytics_panel_js
+        assert "renderAnalyticsTab(" in analytics_panel_js
 
     def test_has_clear_method(self, analytics_panel_js):
         """Test that AnalyticsPanel has clear method."""
@@ -798,8 +811,8 @@ class TestAnalyticsPanelModule:
         assert "renderOverviewCard(" in analytics_panel_js
 
     def test_has_sentiment_chart_renderer(self, analytics_panel_js):
-        """Test that AnalyticsPanel has renderSentimentChart method."""
-        assert "renderSentimentChart(" in analytics_panel_js
+        """Test that AnalyticsPanel has a sentiment chart renderer."""
+        assert "renderMiniSentimentChart(" in analytics_panel_js
 
     def test_has_word_frequency_renderer(self, analytics_panel_js):
         """Test that AnalyticsPanel has renderWordFrequency method."""
@@ -814,14 +827,24 @@ class TestAnalyticsPanelModule:
         assert "renderSpeakerAnalytics(" in analytics_panel_js
 
     def test_has_sentiment_helpers(self, analytics_panel_js):
-        """Test that AnalyticsPanel has sentiment helper methods."""
-        assert "getSentimentColor(" in analytics_panel_js
+        """The one sentiment helper the panel still factors out.
+
+        `getSentimentColor()` is gone: renderMiniSentimentChart picks the bar
+        colour inline from the compound score. Asserting a helper that nothing
+        calls would pin a shape the code has left.
+        """
         assert "getSentimentEmoji(" in analytics_panel_js
 
     def test_imports_config(self, analytics_panel_js):
         """Test that module imports config."""
         assert "config.js" in analytics_panel_js
 
-    def test_uses_svg_for_chart(self, analytics_panel_js):
-        """Test that sentiment chart uses SVG."""
-        assert "<svg" in analytics_panel_js or "svg" in analytics_panel_js.lower()
+    def test_chart_is_drawn_as_css_bars(self, analytics_panel_js):
+        """The sentiment chart draws div bars, not SVG.
+
+        This asserted SVG and passed for years on the word "svg" appearing
+        anywhere in the file. The chart never drew one after the tabs
+        refactor; it sizes a row of divs by compound score.
+        """
+        assert "renderMiniSentimentChart(" in analytics_panel_js
+        assert "<svg" not in analytics_panel_js
