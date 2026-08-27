@@ -50,6 +50,15 @@ build-backend = "hatchling.build"
 looksatwords = "looksatwords.__main__:cli"
 
 [tool.pytest.ini_options]
+# The governance corpus is vendored at governance/qm and carries its own test
+# suite, which asserts against the corpus root as the working directory. Left
+# unbounded, this project's `pytest` collects those and reports a red suite
+# for a file this repository does not own. `norecursedirs` is the half that
+# still holds when pytest is handed an explicit path, which makes `testpaths`
+# inert.
+testpaths = ["looksatwords/tests"]
+norecursedirs = ["governance", ".venv", "output", "node_modules"]
 markers = [
-    "e2e: end-to-end tests requiring browser (deselect with '-m \"not e2e\"')"
+    "e2e: end-to-end tests requiring browser (deselect with '-m \"not e2e\"')",
+    "llm: reaches a live Ollama on loopback (deselect with '-m \"not llm\"')",
 ]
