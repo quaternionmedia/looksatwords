@@ -64,10 +64,23 @@ export class AnimationController {
                 path.style.strokeDasharray = pathLength;
                 path.style.strokeDashoffset = pathLength;
 
+                // REVEAL THROUGH style, NEVER THROUGH THE ATTRIBUTE.
+                // `.thread-path` and `.tangent-arc` start at `opacity: 0` in
+                // visualizer.css so the draw-on reveal has something to reveal
+                // from. A CSS declaration beats an SVG presentation attribute,
+                // and anime.js writes `opacity` to whichever of the two the
+                // target already has -- style for the HTML nodes, the
+                // attribute for these SVG shapes. Measured on 2026-08-26: the
+                // paths finished every animation with attr 0.7, no inline
+                // style, and computed 0. Every thread line was drawn, correct,
+                // and invisible, while the nodes above them showed. The dash
+                // offset below is the reveal; opacity is set once, in the one
+                // place that outranks the stylesheet.
+                path.style.opacity = '0.7';
+
                 if (typeof anime !== 'undefined') {
                     anime({
                         targets: path,
-                        opacity: [0, 0.7],
                         strokeDashoffset: [pathLength, 0],
                         duration: CONFIG.animation.pathDuration,
                         delay: index * 300,
@@ -76,7 +89,6 @@ export class AnimationController {
                 } else {
                     // Fallback for when anime.js is not loaded
                     this.fallbackAnimate(path, {
-                        opacity: { from: 0, to: 0.7 },
                         strokeDashoffset: { from: pathLength, to: 0 }
                     }, CONFIG.animation.pathDuration, index * 300);
                 }
@@ -127,15 +139,24 @@ export class AnimationController {
 
                 const delay = (tangent.startTime / this.totalDuration) * 500;
 
+                // Same reveal rule as the thread paths above.
+                path.style.opacity = '0.7';
+
                 if (typeof anime !== 'undefined') {
                     anime({
                         targets: path,
-                        opacity: [0, 0.7],
                         strokeDashoffset: [pathLength, 0],
                         duration: CONFIG.animation.tangentDuration,
                         delay: delay,
                         easing: CONFIG.animation.easing
                     });
+                } else {
+                    // This branch did not exist, so a page without anime.js
+                    // left every tangent arc at the stylesheet's `opacity: 0`
+                    // with no reveal to undo it.
+                    this.fallbackAnimate(path, {
+                        strokeDashoffset: { from: pathLength, to: 0 }
+                    }, CONFIG.animation.tangentDuration, delay);
                 }
             }
 

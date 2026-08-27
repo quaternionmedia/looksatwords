@@ -141,7 +141,9 @@ export class VisualizationRenderer {
         path.setAttribute('stroke', thread.color);
         path.setAttribute('stroke-width', '3');
         path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0.7');
+        // No `opacity` attribute: `.thread-path` is revealed through
+        // inline style by animation.js, and a presentation attribute here
+        // loses to the stylesheet while misdirecting anime.js.
         path.classList.add('thread-path');
         path.id = `thread-path-${threadIndex}`;
 
@@ -421,7 +423,7 @@ export class VisualizationRenderer {
         path.setAttribute('stroke', thread.color);
         path.setAttribute('stroke-width', '2');
         path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0.6');
+        // Revealed through inline style; see the note above.
         path.classList.add('thread-path');
         path.id = `speaker-thread-path-${threadIndex}`;
         
@@ -604,7 +606,7 @@ export class VisualizationRenderer {
         path.setAttribute('stroke-width', '3');
         path.setAttribute('stroke-dasharray', '6,6');
         path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0.7');
+        // Revealed through inline style; see the note in animation.js.
         path.classList.add('tangent-arc');
         path.id = `tangent-arc-${tangentIndex}`;
 
