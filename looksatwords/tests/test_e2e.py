@@ -53,16 +53,26 @@ def browser_context():
     except ImportError:
         pytest.skip("Playwright not installed. Run: uv add playwright && uv run playwright install chromium")
     
+    # ONLY A LAUNCH FAILURE IS AN ENVIRONMENT SKIP. This used to wrap the
+    # whole fixture in `except Exception` and report every failure as
+    # "browsers not installed". It was calling `browser.set_default_timeout`,
+    # which does not exist on `Browser` -- so every test in this file skipped,
+    # on a machine with chromium installed, citing a cause that was not true.
+    # A skip nobody disbelieves is worse than a failure.
     try:
         pw = sync_playwright().start()
         browser = pw.chromium.launch(headless=True)
-        # Set shorter default timeout for all operations
-        browser.set_default_timeout(5000)
+    except Exception as e:
+        pytest.skip(
+            "Could not launch chromium. Run: "
+            "uv run playwright install chromium. Error: " + str(e)
+        )
+
+    try:
         yield browser
+    finally:
         browser.close()
         pw.stop()
-    except Exception as e:
-        pytest.skip(f"Playwright browsers not installed. Run: uv run playwright install chromium\nError: {e}")
 
 
 # =============================================================================
@@ -277,6 +287,67 @@ def test_conversation_analysis_basic(server_url, browser_context):
         # Check that thread information is displayed
         content = thread_analysis.inner_text()
         assert len(content) > 0, "Thread analysis should have content"
+    finally:
+        page.close()
+
+
+def test_thread_lines_are_actually_visible(server_url, browser_context):
+    """The thread paths reach the screen, not just the DOM.
+
+    THIS IS THE ONE ASSERTION A STRING TEST CANNOT MAKE. Every path was in the
+    document, with the right `d`, the right stroke, a real length and a reveal
+    animation that ran to completion -- and computed opacity 0 for the whole
+    life of the page, because `.thread-path` is hidden in visualizer.css and
+    the reveal was writing the SVG presentation attribute, which a stylesheet
+    outranks. The nodes drawn on top of those lines were visible throughout,
+    since they are HTML and took the style path instead.
+
+    So this reads `getComputedStyle`, which is the only thing that knows about
+    both the attribute and the stylesheet. Asserting the element exists, or
+    that the animation ran, or that the attribute holds 0.7, all passed while
+    the feature was invisible.
+
+    THE MUTATION THAT PROVED IT FIRES. Deleting the `path.style.opacity` line
+    from `AnimationController.animateThreadPaths` reproduces the original
+    defect exactly, and this test then reports "8 of 8 thread paths computed to
+    opacity 0". Restored, it passes. Run on 2026-08-26.
+    """
+    page = browser_context.new_page()
+
+    try:
+        page.goto(f"{server_url}/")
+        page.wait_for_load_state("networkidle")
+
+        page.fill("#textInput", (
+            "Alice: We need to decide how the panel reads the archive.\n"
+            "Bob: The obvious move is to import the harness directly.\n"
+            "Alice: That couples them. The panel breaks on a layout change.\n"
+            "Bob: However, HTTP over loopback needs the harness running.\n"
+        ))
+        page.click("button:has-text('Analyze')")
+
+        page.wait_for_selector("#visualization svg path", timeout=10000)
+        # The reveal is animated; wait for it rather than racing it.
+        page.wait_for_timeout(5000)
+
+        paths = page.eval_on_selector_all(
+            "#visualization svg path.thread-path",
+            """els => els.map(e => ({
+                opacity: parseFloat(getComputedStyle(e).opacity),
+                length: e.getTotalLength(),
+                stroke: getComputedStyle(e).stroke,
+            }))""",
+        )
+
+        assert paths, "no thread paths were drawn at all"
+        invisible = [p for p in paths if p["opacity"] <= 0.01]
+        assert not invisible, (
+            f"{len(invisible)} of {len(paths)} thread paths computed to opacity 0 -- "
+            "drawn, correct, and invisible"
+        )
+        assert all(p["length"] > 1 for p in paths), (
+            "a thread path has no length, so nothing would show even at full opacity"
+        )
     finally:
         page.close()
 
@@ -611,18 +682,26 @@ def test_analytics_panel_appears_after_analysis(server_url, browser_context):
         page.goto(f"{server_url}/", timeout=10000)
         page.wait_for_load_state("networkidle", timeout=5000)
         
-        # Analytics panel should be hidden initially
+        # THE PANEL IS A PERMANENT DOCK. Since the tabs refactor its tab bar
+        # is on screen from load, so "did the panel appear" is no longer a
+        # question about the panel -- it is a question about what its Analytics
+        # tab holds. Asserting the panel was hidden before analysis is why this
+        # test failed the first time the suite was able to run at all.
         analytics_panel = page.locator("#analyticsPanel")
-        assert not analytics_panel.is_visible() or analytics_panel.get_attribute("style") == "display: none;"
-        
-        # Load and analyze conversation
+        assert analytics_panel.is_visible(), "The panel dock is present from load"
+        before = analytics_panel.inner_text()
+        assert "Messages" not in before, (
+            "the Analytics tab is holding statistics before anything was analysed"
+        )
+
         page.click("button:has-text('Sample')")
         page.wait_for_timeout(300)
         page.click("button:has-text('Analyze')")
         page.wait_for_timeout(3000)
-        
-        # Analytics panel should now be visible
-        assert analytics_panel.is_visible(), "Analytics panel should appear after analysis"
+
+        after = analytics_panel.inner_text()
+        assert "Messages" in after, "the Analytics tab did not fill after analysis"
+        assert len(after) > len(before), "the panel gained nothing from the analysis"
     finally:
         page.close()
 
@@ -641,16 +720,27 @@ def test_analytics_panel_shows_overview(server_url, browser_context):
         page.click("button:has-text('Analyze')")
         page.wait_for_timeout(3000)
         
-        # Check for analytics title
-        title = page.locator("#analyticsPanelTitle")
-        assert title.is_visible() or page.locator("text=Conversation Analytics").is_visible()
-        
-        # Check for overview card content
+        # The tabs refactor removed `#analyticsPanelTitle` and the string
+        # "Conversation Analytics"; the Overview card is the thing to assert.
         analytics_panel = page.locator("#analyticsPanel")
         content = analytics_panel.inner_text()
-        
-        # Should contain stats like Messages, Words, Sentiment
-        assert "Messages" in content or "messages" in content
+
+        assert "Overview" in content, "the Overview card is not rendered"
+        for label in ("Messages", "Words", "Unique Words", "Speakers"):
+            assert label in content, "Overview is missing " + label
+
+        # AND THE VALUES ARE MEASUREMENTS. Every label above was present while
+        # `Unique Words` and `Speakers` read 0 for a real conversation, because
+        # the API sent neither field and the card turned the absence into a
+        # number. The card now renders an em dash for a field nobody sent, so
+        # finding one here means a value went missing again.
+        values = page.eval_on_selector_all(
+            "#analyticsPanel div",
+            "els => els.map(e => e.textContent.trim())",
+        )
+        assert not any(v == "—" for v in values), (
+            "the Overview card is rendering an em dash, so the API omitted a field"
+        )
     finally:
         page.close()
 
@@ -705,7 +795,9 @@ def test_analytics_panel_cleared_on_reset(server_url, browser_context):
         page.click("button:has-text('Reset')")
         page.wait_for_timeout(300)
         
-        # Analytics panel should be hidden
-        assert not analytics_panel.is_visible() or analytics_panel.inner_text().strip() == ""
+        # The dock stays; what Reset clears is the tab's contents.
+        assert "Messages" not in analytics_panel.inner_text(), (
+            "Reset left the previous analysis in the Analytics tab"
+        )
     finally:
         page.close()
