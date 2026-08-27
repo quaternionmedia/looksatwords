@@ -43,6 +43,7 @@ Visit http://localhost:8000 to analyze conversations.
 | [API Reference](docs/api.md) | REST API endpoints |
 | [Contributing](docs/contributing.md) | Development guide |
 | [Testing](docs/testing.md) | Running and writing tests |
+| [Open Questions](docs/open-questions.md) | What is waiting on a person, and what is not settled |
 
 ## Usage
 
