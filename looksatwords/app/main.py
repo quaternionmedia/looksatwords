@@ -407,13 +407,15 @@ class GenerateConversationResponse(BaseModel):
 def generate_conversation(request: GenerateConversationRequest):
     """Generate a sample conversation using the LLM.
     
-    Uses Ollama/llama3.1 to generate a realistic conversation
+    Uses the Ollama model named by LOOKSATWORDS_OLLAMA_MODEL to generate a realistic conversation
     on a given topic with specified speakers.
     """
     try:
         import ollama
         
-        client = ollama.Client(host="http://localhost:11434")
+        from looksatwords.llm import HOST, MODEL
+
+        client = ollama.Client(host=HOST)
         
         # Default speaker names
         speakers = request.speaker_names or ["Alice", "Bob", "Carol", "Dave"][:request.num_speakers]
@@ -423,7 +425,7 @@ def generate_conversation(request: GenerateConversationRequest):
         topic = request.topic
         if not topic:
             topic_response = client.chat(
-                model="llama3.1",
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": "Generate a single interesting conversation topic in 3-5 words. Just the topic, nothing else."},
                     {"role": "user", "content": "Give me a random interesting topic for a conversation."}
@@ -445,7 +447,7 @@ Requirements:
 Generate only the conversation, no explanations or headers."""
 
         response = client.chat(
-            model="llama3.1",
+            model=MODEL,
             messages=[
                 {
                     "role": "system", 
@@ -957,7 +959,7 @@ def gather_news(request: GatherRequest):
 def generate_news(request: GenerateRequest):
     """Generate synthetic news articles using LLM.
     
-    Uses Ollama/llama3.1 to create realistic news headlines and descriptions
+    Uses the Ollama model named by LOOKSATWORDS_OLLAMA_MODEL to create realistic news headlines and descriptions
     based on a seed word or topic.
     """
     news_service = get_news_service()

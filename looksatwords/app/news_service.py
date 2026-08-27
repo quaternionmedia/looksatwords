@@ -60,7 +60,10 @@ class NewsService:
         """Check if Ollama is available."""
         try:
             import ollama
-            client = ollama.Client(host="http://localhost:11434")
+
+            from looksatwords.llm import HOST, MODEL
+
+            client = ollama.Client(host=HOST)
             client.list()  # Test connection
             return True
         except:
@@ -151,14 +154,17 @@ class NewsService:
             raise RuntimeError("Ollama not available. Make sure Ollama is running at localhost:11434")
         
         import ollama
-        client = ollama.Client(host="http://localhost:11434")
+
+        from looksatwords.llm import HOST, MODEL
+
+        client = ollama.Client(host=HOST)
         
         articles = []
         
         for i in range(request.count):
             # Generate headline
             headline_response = client.chat(
-                model="llama3.1",
+                model=MODEL,
                 messages=[
                     {
                         "role": "system",
@@ -174,7 +180,7 @@ class NewsService:
             
             # Generate description
             desc_response = client.chat(
-                model="llama3.1",
+                model=MODEL,
                 messages=[
                     {
                         "role": "system",
