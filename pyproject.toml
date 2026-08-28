@@ -61,4 +61,5 @@ norecursedirs = ["governance", ".venv", "output", "node_modules"]
 markers = [
     "e2e: end-to-end tests requiring browser (deselect with '-m \"not e2e\"')",
     "llm: reaches a live Ollama on loopback (deselect with '-m \"not llm\"')",
+    "screenshots: records the committed pictures in docs/pics/ (also e2e)",
 ]

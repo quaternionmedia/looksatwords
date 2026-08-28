@@ -194,6 +194,7 @@ LOOKSATWORDS_OLLAMA_MODEL=qwen2.5-coder:7b uv run looksatwords serve --no-open
 ```sh
 uv run pytest -m "not e2e"               # the default suite
 uv run pytest -m e2e                     # browser tests; see the note below
+uv run looksatwords screenshots          # re-record docs/pics/ from a seeded run
 uv run pytest -m llm                     # reaches a live Ollama on loopback
 ```
 
@@ -216,6 +217,29 @@ entire browser suite skipped on a machine that could run it.
 that talks to a live model. When Ollama is down, or is up without the model
 this project asks for, it skips with the reason and the command that fixes it.
 That is the "nobody could look" answer and it is not a pass.
+
+## Pictures
+
+**The images in `README.md` and `docs/` are recorded by running the app, never
+captured by hand.** `uv run looksatwords screenshots` starts this project
+against a stub harness and a scratch database, drives a real browser, and writes
+`docs/pics/`. Run it when the UI changes and commit what moves.
+
+**Recorded, not compared.** Nothing diffs a PNG — a byte comparison of a
+rendered page fails on a font and a machine, and a test that fails for those
+reasons gets muted. What is asserted is that the page had something in it: the
+thread paths drew with non-zero computed opacity, and the panel holds the
+numbers it should. A blank frame fails here rather than being committed.
+
+**Nothing in that run touches the live harness or the operator's database.**
+Both move — the archive on the machine this was written on gained 1,573 turns on
+one thread during a single session — so a picture taken from either would churn
+on every regeneration and its diff would carry no information.
+
+`looksatwords/tests/test_documented_pictures.py` pairs the two directions in the
+ordinary suite: every image the prose references exists, and every image on disk
+is one the recording command writes. The second is the one that bites, and it is
+why the previous hero image is gone.
 
 ## Gates
 

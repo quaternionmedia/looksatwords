@@ -161,6 +161,41 @@ def test_api(verbose, timeout):
     sys.exit(result.returncode)
 
 
+@cli.command()
+def screenshots():
+    """Re-record the pictures in docs/pics/ by driving the real UI.
+
+    P12, "show it by running it". The images the README and the docs show are
+    not drawn by hand and not captured by whoever happened to have the app open
+    -- they are recorded by a test that starts this project against a stub
+    harness and a scratch database, drives the browser, and asserts the page had
+    something in it before the shutter opened.
+
+    RECORDED, NOT COMPARED. Nothing diffs a PNG. A byte comparison of a rendered
+    page fails on a font and a machine, and a test that fails for those reasons
+    gets muted. What is asserted is that the threads drew with non-zero opacity
+    and the panel holds its numbers, so a blank frame fails here rather than
+    being committed and reviewed.
+
+    Run this before a pull request that changes the UI, and commit what changes.
+
+    Needs `uv run playwright install chromium`. It starts its own server, so
+    nothing else has to be running -- and it never touches the live harness or
+    the operator's database.
+    """
+    click.echo("Recording docs/pics/ from a seeded run...\n")
+
+    cmd = [sys.executable, "-m", "pytest", "-m", "screenshots", "-s", "-q"]
+    result = subprocess.run(cmd)
+
+    if result.returncode == 0:
+        click.echo("\nPictures recorded. `git status` shows which ones moved.")
+    else:
+        click.echo("\nThe recording failed. No picture was written for the failing step.")
+
+    sys.exit(result.returncode)
+
+
 @cli.command("test-e2e")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.option("--browser", default="chromium", help="Browser to use (chromium, firefox, webkit)")

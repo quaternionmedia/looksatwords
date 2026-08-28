@@ -1,0 +1,272 @@
+{
+  "schema": 1,
+  "generated_at": "2026-08-20T15:00:00Z",
+  "reading": {
+    "the_index_is_a_reading": "These figures are as of `generated_at`, from a cache that is itself a snapshot. Nothing here counts conversations that exist; it counts conversations that were exported and indexed.",
+    "refresh": "uv run qmcp threads index --write"
+  },
+  "totals": {
+    "threads": 3,
+    "diverged": 0,
+    "unreadable": 0
+  },
+  "threads": [
+    {
+      "source": "claude",
+      "id": "fixture-seam-0001",
+      "title": "How the panel reads the thread archive",
+      "turns": 16,
+      "digest": "fixture0",
+      "first_seen": "2026-08-19T09:30:00Z",
+      "last_seen": "2026-08-20T15:00:00Z",
+      "diverged": false,
+      "changes": 0,
+      "address": "quaternionmedia/qmcp/delta/thread-fixture-seam-0001",
+      "perspective": "claude/thread",
+      "phase": "brainstorm",
+      "delta_type": "thread"
+    },
+    {
+      "source": "chatgpt",
+      "id": "fixture-ports-0002",
+      "title": "Choosing service ports nobody has to look up",
+      "turns": 4,
+      "digest": "fixture1",
+      "first_seen": "2026-08-19T09:30:00Z",
+      "last_seen": "2026-08-20T15:00:00Z",
+      "diverged": false,
+      "changes": 0,
+      "address": "quaternionmedia/qmcp/delta/thread-fixture-ports-0002",
+      "perspective": "chatgpt/thread",
+      "phase": "brainstorm",
+      "delta_type": "thread"
+    },
+    {
+      "source": "claude-code",
+      "id": "fixture-absent-0003",
+      "title": "A thread the index lists and the archive cannot produce",
+      "turns": 42,
+      "digest": "fixture9",
+      "first_seen": "2026-08-19T09:30:00Z",
+      "last_seen": "2026-08-20T15:00:00Z",
+      "diverged": false,
+      "changes": 0,
+      "address": "quaternionmedia/qmcp/delta/thread-fixture-absent-0003",
+      "perspective": "claude-code/thread",
+      "phase": "brainstorm",
+      "delta_type": "thread"
+    }
+  ],
+  "_bodies": {
+    "claude/fixture-seam-0001": {
+      "source": "claude",
+      "id": "fixture-seam-0001",
+      "title": "How the panel reads the thread archive",
+      "url": "https://example.invalid/threads/fixture-seam-0001",
+      "started_at": "2026-08-20T14:00:00Z",
+      "partial": false,
+      "turns": [
+        {
+          "id": "turn-000",
+          "role": "user",
+          "at": "1787000000",
+          "text": "We need to decide how the panel reads the thread archive."
+        },
+        {
+          "id": "turn-001",
+          "role": "assistant",
+          "at": "1787000090",
+          "text": "The obvious move is to import the harness package directly."
+        },
+        {
+          "id": "turn-002",
+          "role": "assistant",
+          "at": "1787000180",
+          "text": ""
+        },
+        {
+          "id": "turn-003",
+          "role": "user",
+          "at": "1787000270",
+          "text": "That couples them. If the storage layout changes, the panel breaks."
+        },
+        {
+          "id": "turn-004",
+          "role": "assistant",
+          "at": "1787000360",
+          "text": "However, HTTP over loopback means we need the harness running."
+        },
+        {
+          "id": "turn-005",
+          "role": "assistant",
+          "at": "1787000450",
+          "text": ""
+        },
+        {
+          "id": "turn-006",
+          "role": "user",
+          "at": "1787000540",
+          "text": "That is a precondition we can declare, though. Side note - what port?"
+        },
+        {
+          "id": "turn-007",
+          "role": "assistant",
+          "at": "1787000630",
+          "text": "3141. The harness publishes it, and the host stays loopback."
+        },
+        {
+          "id": "turn-008",
+          "role": "user",
+          "at": "1787000720",
+          "text": "Back to the seam - so it is HTTP plus a schema, and nothing imports anything."
+        },
+        {
+          "id": "turn-009",
+          "role": "assistant",
+          "at": "1787000810",
+          "text": ""
+        },
+        {
+          "id": "turn-010",
+          "role": "assistant",
+          "at": "1787000900",
+          "text": "Right. The schema is the contract and the port is the only setting."
+        },
+        {
+          "id": "turn-011",
+          "role": "user",
+          "at": "1787000990",
+          "text": "What happens when the harness is not running at all?"
+        },
+        {
+          "id": "turn-012",
+          "role": "assistant",
+          "at": "1787001080",
+          "text": "The panel says nobody answered, and names the command that fixes it."
+        },
+        {
+          "id": "turn-013",
+          "role": "user",
+          "at": "1787001170",
+          "text": "Not an empty table. An empty table and a broken one look identical."
+        },
+        {
+          "id": "turn-014",
+          "role": "assistant",
+          "at": "1787001260",
+          "text": "Agreed. Reachable is a field, and every caller reads it first."
+        },
+        {
+          "id": "turn-015",
+          "role": "user",
+          "at": "1787001350",
+          "text": "Then the decision is the seam. Let us write that down."
+        }
+      ]
+    },
+    "chatgpt/fixture-ports-0002": {
+      "source": "chatgpt",
+      "id": "fixture-ports-0002",
+      "title": "Choosing service ports nobody has to look up",
+      "url": "https://example.invalid/threads/fixture-ports-0002",
+      "started_at": "2026-08-19T09:30:00Z",
+      "partial": false,
+      "turns": [
+        {
+          "id": "turn-000",
+          "role": "user",
+          "at": "1787000000",
+          "text": "Three services need three ports somebody can recall."
+        },
+        {
+          "id": "turn-001",
+          "role": "assistant",
+          "at": "1787000090",
+          "text": "Pi for the harness, phi for the panel, e for the code maps."
+        },
+        {
+          "id": "turn-002",
+          "role": "user",
+          "at": "1787000180",
+          "text": "The joke port everyone reaches for was already in use here."
+        },
+        {
+          "id": "turn-003",
+          "role": "assistant",
+          "at": "1787000270",
+          "text": "Which is the argument against the port everybody thinks of first."
+        }
+      ]
+    }
+  },
+  "_deltas": {
+    "claude/fixture-seam-0001": {
+      "source": "claude",
+      "id": "fixture-seam-0001",
+      "perspective": "claude/thread",
+      "deltas": [
+        {
+          "schema": 1,
+          "project": "quaternionmedia/qmcp",
+          "perspective": "claude/thread",
+          "delta": {
+            "name": "thread-fixture-seam-0001",
+            "title": "How the panel reads the thread archive",
+            "description": "https://example.invalid/threads/fixture-seam-0001",
+            "phase": "brainstorm",
+            "delta_type": "thread",
+            "priority": "medium"
+          },
+          "links": [
+            {
+              "link_type": "address",
+              "target_id": null,
+              "target_name": "quaternionmedia/qmcp/delta/thread-fixture-seam-0001"
+            },
+            {
+              "link_type": "thread",
+              "target_id": null,
+              "target_name": "https://example.invalid/threads/fixture-seam-0001"
+            }
+          ]
+        }
+      ],
+      "relations": [],
+      "spent": 0
+    },
+    "chatgpt/fixture-ports-0002": {
+      "source": "chatgpt",
+      "id": "fixture-ports-0002",
+      "perspective": "chatgpt/thread",
+      "deltas": [
+        {
+          "schema": 1,
+          "project": "quaternionmedia/qmcp",
+          "perspective": "chatgpt/thread",
+          "delta": {
+            "name": "thread-fixture-ports-0002",
+            "title": "Choosing service ports nobody has to look up",
+            "description": "https://example.invalid/threads/fixture-ports-0002",
+            "phase": "brainstorm",
+            "delta_type": "thread",
+            "priority": "medium"
+          },
+          "links": [
+            {
+              "link_type": "address",
+              "target_id": null,
+              "target_name": "quaternionmedia/qmcp/delta/thread-fixture-ports-0002"
+            },
+            {
+              "link_type": "thread",
+              "target_id": null,
+              "target_name": "https://example.invalid/threads/fixture-ports-0002"
+            }
+          ]
+        }
+      ],
+      "relations": [],
+      "spent": 0
+    }
+  }
+}
