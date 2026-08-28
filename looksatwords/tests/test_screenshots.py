@@ -92,11 +92,30 @@ def _make_handler(archive):
     return Handler
 
 
+# A FIXED PORT, BECAUSE IT IS IN THE PICTURE. The archive status card renders
+# the address it read from, so a port chosen at random put a different number
+# into two of these images on every run -- about thirty bytes of churn in a
+# binary file, which is a diff nobody can read attached to a change nobody made.
+# Pinning it makes the recording deterministic. It is deliberately not 3141: a
+# real harness may be serving on this machine and must not be shadowed.
+STUB_PORT = 13141
+
+
 @pytest.fixture(scope="module")
 def stub_harness():
     archive = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    port = _free_port()
-    server = HTTPServer(("127.0.0.1", port), _make_handler(archive))
+    port = STUB_PORT
+    try:
+        server = HTTPServer(("127.0.0.1", port), _make_handler(archive))
+    except OSError as e:
+        # Loud, with the reason. Falling back to a free port would record
+        # pictures that differ from everybody else's and look like a UI change.
+        pytest.fail(
+            f"The screenshot stub could not bind 127.0.0.1:{port} ({e}). "
+            "Something else is using it. Stop that, or change STUB_PORT -- do "
+            "not record these pictures against a different port, because the "
+            "port is visible in two of them."
+        )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
