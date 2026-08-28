@@ -333,7 +333,11 @@ def test_thread_lines_are_actually_visible(server_url, browser_context):
         ))
         page.click("button:has-text('Analyze')")
 
-        page.wait_for_selector("#visualization svg path", timeout=10000)
+        # Attached, not visible: a lane is a horizontal line and its bounding
+        # box is zero pixels high. Computed opacity is what this test is about.
+        page.wait_for_selector(
+            "#visualization svg path", state="attached", timeout=10000
+        )
         # The reveal is animated; wait for it rather than racing it.
         page.wait_for_timeout(5000)
 

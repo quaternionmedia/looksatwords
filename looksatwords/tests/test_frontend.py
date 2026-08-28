@@ -526,9 +526,19 @@ class TestRendererModule:
         """Test that VisualizationRenderer has calculateX method."""
         assert "calculateX(" in renderer_js
 
-    def test_has_calculate_y_method(self, renderer_js):
-        """Test that VisualizationRenderer has calculateY method."""
-        assert "calculateY(" in renderer_js
+    def test_lanes_are_flat(self, renderer_js):
+        """A topic's height is its lane and nothing else.
+
+        `calculateY(threadIndex, time, intensity)` returned the lane plus
+        `sin(time * 0.1) * 20` plus the intensity again, so vertical position
+        meant three things at once and lanes crossed each other. `laneY` takes
+        only the index. The second assertion is the one with teeth: a wave can
+        be reintroduced without renaming anything.
+        """
+        assert "laneY(" in renderer_js
+        assert "Math.sin" not in renderer_js, (
+            "a wave is back in the renderer; vertical position is the lane"
+        )
 
     def test_uses_svg(self, renderer_js):
         """Test that renderer uses SVG elements."""

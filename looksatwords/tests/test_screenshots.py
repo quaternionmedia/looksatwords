@@ -240,7 +240,14 @@ def test_records_an_analysed_thread(page):
         "[data-harness-analyze]",
         "els => els.find(e => e.dataset.source === 'claude').click()",
     )
-    page.wait_for_selector("#visualization svg path.thread-path", timeout=30000)
+    # ATTACHED, NOT VISIBLE. A lane is a horizontal line, so its bounding box
+    # is zero pixels high and Playwright's `visible` state never matches it --
+    # the path is on screen, stroked, and readable by a person. Bounding-box
+    # visibility was never the property in question here: the defect this guards
+    # against is a path at computed opacity 0, which is asserted below.
+    page.wait_for_selector(
+        "#visualization svg path.thread-path", state="attached", timeout=30000
+    )
     page.wait_for_timeout(5000)
 
     # ASSERT THE PICTURE HAS SOMETHING IN IT. Paths in the DOM at opacity 0 is
