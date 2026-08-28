@@ -1,152 +1,169 @@
 # CLI Reference
 
-All commands use the format: `uv run looksatwords <command>`
+All commands use the format `uv run looksatwords <command>`. Every one of them
+takes `--help`, and `--help` is the authority — this page is a map, and
+`looksatwords/tests/test_cli_reference.py` fails if the two stop agreeing in
+either direction.
 
-## Quick Reference
+## Quick reference
 
-| Command | Description |
-|---------|-------------|
-| `serve` | Start server and open browser |
-| `serve --no-open` | Start server without browser |
-| `gather` | Extract conversations from text |
-| `analyze` | Analyze conversations |
-| `visualize` | Generate visualization |
-| `run` | Full pipeline (gather → analyze → visualize) |
-| `doctor` | Check environment health |
-| `clean` | Remove output files |
-| `version` | Show version |
+<!-- COMMANDS: every command below must exist, and every command must be below.
+     The guard reads this table; do not rename its markers. -->
+
+| Command | What it does |
+|---------|--------------|
+| `serve` | Start the application server (API + frontend) |
+| `run` | Gather, generate, analyze and visualize articles end to end |
+| `screenshots` | Re-record the pictures in `docs/pics/` by driving the real UI |
+| `test` | Run the test suite, with coverage, parallelism and timeout options |
+| `test-api` | Run the API integration tests |
+| `test-e2e` | Run the browser tests with playwright |
+| `lint` | Run ruff check |
+| `format-code` | Format with ruff |
+| `install-dev` | uv sync plus the playwright browsers |
+| `doctor` | Check environment health and dependencies |
+| `clean` | Remove generated files and caches |
+
+<!-- END COMMANDS -->
 
 ---
 
-## Server Commands
+## Running the app
 
 ### `serve`
 
-Start the web server and frontend.
-
 ```bash
-uv run looksatwords serve              # Port 8000, opens browser
-uv run looksatwords serve --no-open    # Don't open browser
-uv run looksatwords serve --port 3000  # Custom port
+uv run looksatwords serve                 # 127.0.0.1:8000, opens a browser
+uv run looksatwords serve --no-open       # no browser
+uv run looksatwords serve -p 8080         # another port
+uv run looksatwords serve --reload        # auto-reload while developing
+uv run looksatwords serve --host 0.0.0.0  # listen on all interfaces
 ```
 
-**Options:**
-- `--port` - Server port (default: 8000)
-- `--no-open` - Don't open browser automatically
+Two settings matter and neither is a flag:
 
----
+- **`LOOKSATWORDS_DB`** moves the database. Anything demonstrating the tool
+  should set it — without it, demo conversations land in the same file as real
+  ones with nothing to tell them apart.
+- **`LOOKSATWORDS_HARNESS_PORT`** points at the thread archive, default `3141`.
+  **There is no setting for the host.** It is loopback, because a client that
+  could be pointed at another machine is how "served to this machine only" stops
+  being true.
 
-## Pipeline Commands
+`LOOKSATWORDS_OLLAMA_MODEL` picks the model for generation, default `llama3.1`.
+Its host is loopback for the same reason and is likewise not a setting.
 
 ### `run`
 
-Execute the full analysis pipeline.
+The non-interactive pipeline: gather articles, optionally generate more,
+analyse, and write visualizations.
 
 ```bash
-uv run looksatwords run -i input.txt           # From file
-uv run looksatwords run -t "conversation text" # From string
+uv run looksatwords run                     # top news, default analysis
+uv run looksatwords run -g 10 -f 5          # gather 10, generate 5
+uv run looksatwords run -v sentiment        # only the sentiment visual
 ```
 
-**Options:**
-- `-i, --input` - Input file path
-- `-t, --text` - Input text string (alternative to file)
+**Options:** `--keywords/-k`, `--table/-t`, `--num_gen/-f`, `--num_gath/-g`,
+`--analysis_level/-a`, `--visuals_out/-v`.
 
-### `gather`
+---
 
-Extract conversations from raw text.
+## Recording what the docs show
+
+### `screenshots`
 
 ```bash
-uv run looksatwords gather -i input.txt
+uv run looksatwords screenshots
 ```
 
-### `analyze`
+Starts this project against a stub harness and a scratch database, drives a real
+browser, and writes `docs/pics/`. It needs
+`uv run playwright install chromium` and starts its own server, so nothing else
+has to be running — and it never touches the live archive or your database.
 
-Perform linguistic analysis on conversations.
+**Recorded, not compared.** Nothing diffs a PNG. What is asserted is that the
+page had something in it before the shutter opened: the thread paths drew with
+non-zero computed opacity, and the panel holds its numbers. Run it when the UI
+changes and commit what moves.
+
+---
+
+## Tests
+
+### `test`
 
 ```bash
-uv run looksatwords analyze -i data.json
+uv run looksatwords test              # everything
+uv run looksatwords test --cov        # with coverage
+uv run looksatwords test --parallel   # across cores
+uv run looksatwords test -f test_analyzer.py
 ```
 
-### `visualize`
+**Options:** `--cov`, `--html`, `--parallel`, `--timeout`, `--verbose/-v`,
+`--file/-f`.
 
-Generate HTML visualization.
+### `test-api` and `test-e2e`
 
 ```bash
-uv run looksatwords visualize -i analyzed.json
+uv run looksatwords test-api          # API integration tests
+uv run looksatwords test-e2e          # browser tests
+uv run looksatwords test-e2e --headed # watch them run
+```
+
+`test-e2e` needs a chromium from `playwright install` **and a server already
+listening** — start one with `serve` in another terminal. Its fixture skips only
+when chromium will not launch, and says so; a skip is not a pass.
+
+Markers, if you would rather use pytest directly:
+
+```bash
+uv run pytest -m "not e2e"     # the default suite
+uv run pytest -m e2e           # browser tests
+uv run pytest -m llm           # reaches a live Ollama on loopback
+uv run pytest -m screenshots   # records docs/pics/
 ```
 
 ---
 
-## Utility Commands
+## Development
+
+### `lint`, `format-code`, `install-dev`
+
+```bash
+uv run looksatwords lint          # ruff check
+uv run looksatwords format-code   # ruff format
+uv run looksatwords install-dev   # uv sync + playwright browsers
+```
 
 ### `doctor`
-
-Check environment health and configuration.
 
 ```bash
 uv run looksatwords doctor
 ```
 
-Checks:
-- Python version
-- Database connectivity
-- NLTK data availability
-- Package dependencies
+Reports what is installed and what is missing, so a failure later names a cause
+rather than a symptom.
 
 ### `clean`
-
-Remove generated output files.
 
 ```bash
 uv run looksatwords clean
 ```
 
-### `version`
-
-Display version information.
-
-```bash
-uv run looksatwords version
-```
+Removes generated output and caches. It does not touch the database.
 
 ---
 
-## Input/Output
+## Governance gates
 
-### Input Formats
-
-The pipeline accepts:
-- Plain text files
-- JSON files (from previous gather step)
-- Direct text via `--text` flag
-
-### Output Location
-
-Generated files go to `output/<timestamp>/`:
-- `gathered.json` - Extracted conversations
-- `analyzed.json` - Analysis results  
-- `report.html` - Visualization
-
----
-
-## Examples
-
-### Full Analysis from File
+Not CLI commands — they run out of the vendored corpus:
 
 ```bash
-uv run looksatwords run -i conversation.txt
+uv run python governance/qm/project-seed/ci/run_workflows_locally.py
 ```
 
-### Development Server
-
-```bash
-uv run looksatwords serve --no-open
-# Server runs at http://localhost:8000
-```
-
-### Check Everything Works
-
-```bash
-uv run looksatwords doctor
-uv run looksatwords run -t "Alice: Hello\nBob: Hi there!"
-```
+`reuse-lint`'s install step fails under that runner because this project's
+uv-managed venv has no `pip`; the lint itself passes with
+`uvx --with charset-normalizer reuse lint`. That line is an environment
+difference and not a finding.
