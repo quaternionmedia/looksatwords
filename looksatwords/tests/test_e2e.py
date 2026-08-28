@@ -278,7 +278,14 @@ def test_conversation_analysis_basic(server_url, browser_context):
         
         page.fill("#textInput", test_conversation)
         page.click("button:has-text('Analyze')")
-        page.wait_for_timeout(2000)
+
+        # WAIT FOR THE CONDITION, NOT FOR A DURATION. This slept 2 seconds
+        # and then asserted. It failed once in a full-suite run on
+        # 2026-08-27 and passed alone and on the next full run, which is the
+        # signature of a fixed wait racing a busier machine rather than a
+        # defect in the page. A test that fails for that reason gets muted,
+        # and a muted test is worse than none.
+        page.locator("#threadAnalysis").wait_for(state="visible", timeout=30000)
         
         # Check that thread analysis appeared
         thread_analysis = page.locator("#threadAnalysis")
