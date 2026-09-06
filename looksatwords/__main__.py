@@ -355,5 +355,35 @@ def doctor():
         click.echo(f"\nAll systems nominal!")
 
 
+@cli.command("loose-ends")
+@click.argument("source")
+@click.option("--format", "shape", type=click.Choice(["summary", "text", "keys"]),
+              default="summary", help="text: the conversation this package parses")
+@click.option("--include-dismissed", is_flag=True,
+              help="include items somebody read and deliberately let go")
+def loose_ends_cmd(source, shape, include_dismissed):
+    """Read a corpus's loose-ends.json as an analysable corpus.
+
+    SOURCE is a path or a URL. Nothing is guessed at: a tool that decided which
+    corpus it meant would analyse one organisation and report another.
+
+    The translation is the whole integration -- one line per item, speaker
+    first, where the speaker is the repository. From there every reading this
+    package already has applies: topics, sentiment, speaker comparison, thread
+    analysis, the tangent detector, collections and charts.
+
+    
+    Examples:
+        looksatwords loose-ends ../qm/loose-ends.json
+        looksatwords loose-ends ../qm/loose-ends.json --format text
+    """
+    from .loose_ends import main as run
+
+    argv = [source, "--format", shape]
+    if include_dismissed:
+        argv.append("--include-dismissed")
+    raise SystemExit(run(argv))
+
+
 if __name__ == "__main__":
     cli()
