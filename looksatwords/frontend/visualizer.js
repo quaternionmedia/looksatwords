@@ -5,10 +5,9 @@
  * Now with backend persistence via FastAPI.
  */
 
-// API Configuration
-const API_BASE = window.location.origin.includes('localhost') 
-    ? 'http://localhost:8000'
-    : window.location.origin;
+// API Configuration: the origin this page was served from, whatever host and
+// port that is. See js/config.js for why no port is written here.
+const API_BASE = window.location.origin;
 const API_ENDPOINT = `${API_BASE}/api`;
 
 class ThreadVisualizer {

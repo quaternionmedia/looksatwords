@@ -155,7 +155,7 @@ from playwright.sync_api import Page
 def server_url():
     """Server URL fixture - skips if server not running."""
     import requests
-    url = "http://localhost:8000"
+    url = "http://127.0.0.1:1414"   # the real fixture derives this from default_port()
     try:
         requests.get(f"{url}/health", timeout=2)
         return url

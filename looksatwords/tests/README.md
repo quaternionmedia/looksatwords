@@ -268,10 +268,13 @@ uv run playwright install chromium
 
 ### "Port already in use"
 
-E2E tests use port 8000 by default. Stop any services using this port or use a custom port:
+E2E tests look for the server on the port `serve` binds by default -- the
+org's allocation for this reader, or `LOOKSATWORDS_PORT`. Stop whatever holds
+it, or set the variable for both the server and the test run:
 
 ```bash
-uv run looksatwords serve --no-open --port 8001
+LOOKSATWORDS_PORT=8001 uv run looksatwords serve --no-open
+LOOKSATWORDS_PORT=8001 uv run pytest -m e2e
 ```
 
 ### Tests taking too long

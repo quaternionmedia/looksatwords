@@ -33,7 +33,8 @@ uv sync
 uv run looksatwords serve
 ```
 
-<http://localhost:8000>, API docs at `/docs`.
+<http://127.0.0.1:1414>, API docs at `/docs`. The port is the org's allocation
+for this reader; `LOOKSATWORDS_PORT` moves it, and `serve --help` prints it.
 
 Generation needs a local [Ollama][ollama]. **The host is loopback and is not a
 setting; the model is** — `LOOKSATWORDS_OLLAMA_MODEL`, default `llama3.1`.

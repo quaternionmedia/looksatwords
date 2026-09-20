@@ -33,15 +33,21 @@ either direction.
 ### `serve`
 
 ```bash
-uv run looksatwords serve                 # 127.0.0.1:8000, opens a browser
+uv run looksatwords serve                 # 127.0.0.1:1414, opens a browser
 uv run looksatwords serve --no-open       # no browser
 uv run looksatwords serve -p 8080         # another port
 uv run looksatwords serve --reload        # auto-reload while developing
 uv run looksatwords serve --host 0.0.0.0  # listen on all interfaces
 ```
 
-Two settings matter and neither is a flag:
+Three settings matter and none is a flag:
 
+- **`LOOKSATWORDS_PORT`** moves this server off its default. The default is
+  the org's allocation for this reader -- the governance corpus gives each
+  server on the workstation one port in the SURFACES table of its
+  `ci/dashboard.py`, and `looksatwords/tests/test_port.py` reads a sibling
+  clone's copy of that table to keep this project's constant true. `--port`
+  beats the variable, which beats the allocation; `--help` prints the number.
 - **`LOOKSATWORDS_DB`** moves the database. Anything demonstrating the tool
   should set it — without it, demo conversations land in the same file as real
   ones with nothing to tell them apart.

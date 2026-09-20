@@ -37,7 +37,8 @@ uv sync
 uv run looksatwords serve
 ```
 
-Open http://localhost:8000 and paste a conversation to analyze.
+Open http://127.0.0.1:1414 and paste a conversation to analyze. The port is
+the org's allocation for this reader; `LOOKSATWORDS_PORT` moves it.
 
 ## Architecture Overview
 
@@ -50,7 +51,7 @@ Open http://localhost:8000 and paste a conversation to analyze.
                           ▼
 ┌─────────────────────────────────────────────────────────┐
 │                  FastAPI Server                          │
-│                   Port 8000                              │
+│                   Port 1414                              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
 │  │   /api/*    │  │  /docs      │  │  /health    │     │
 │  │  REST API   │  │  Swagger UI │  │  Health     │     │

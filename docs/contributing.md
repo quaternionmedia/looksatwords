@@ -77,7 +77,7 @@ uv run ruff format looksatwords/
 
 ```bash
 uv run looksatwords serve --no-open
-# Visit http://localhost:8000
+# Visit http://127.0.0.1:1414 (or the port LOOKSATWORDS_PORT names)
 ```
 
 ---
