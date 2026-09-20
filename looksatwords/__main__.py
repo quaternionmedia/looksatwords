@@ -23,7 +23,7 @@ orchestrator = Orchestrator()
 @option('--num_gen', '-f', help="Number of articles to generate")
 @option('--num_gath', '-g', help="Number of articles to gather")
 @option('--analysis_level', '-a', help="Analysis level, either leave blank for none, or 'default' for default analysis")
-@option('--visuals_out', '-v', multiple=True, help="Visuals to output, blank for none any of 'sentiment', 'wordcount', 'grammar'")
+@option('--visuals_out', '-v', multiple=True, help="Visuals to output, blank for none, or any of 'all', 'wordcloud', 'wordcountpie', 'scattersentiment', 'sentiment', 'sentimentscatter', 'boxplot'")
 def cli(
         keywords: Annotated[list[str], Option] = ['test'],
         table:Annotated[str, Argument] = 'io',
@@ -35,11 +35,11 @@ def cli(
     """
     Orchestrates the gathering, generating, analyzing, and visualizing of articles.
     """
-    orchestrator.add_gatherer(GnewsGatherer(table_name=table, q=GnewsQuery(keyword=' '.join(keywords)), n=num_gath))
+    orchestrator.add_gatherer(GnewsGatherer(table_name=table, q=GnewsQuery(keyword=' '.join(keywords))))
     orchestrator.gather()
     orchestrator.save()
 
-    orchestrator.add_generator(GnewsGenerator(seedword=' '.join(keywords), n=num_gen))
+    orchestrator.add_generator(GnewsGenerator(seedword=' '.join(keywords)))
     orchestrator.generate()
     if analysis_level == 'default':
         orchestrator.analyze()

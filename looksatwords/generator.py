@@ -23,10 +23,11 @@ from datetime import datetime
 from .llm import generate_news_headline, generate_news_description, host_url, publisher
 
 class GnewsGenerator(Generator):
-    def __init__(self, seedword=None, db_path='data.json', table_name='generatednews'):
-        super().__init__(db_path=db_path, table_name=table_name)
+    def __init__(self, seedword=None, db_path='data.json', table_name='generatednews', n=1):
+        super().__init__(db_path=db_path, table_name=table_name, n=n)
         self.table_name = self.table_name + '_gennews'
         self.seedword = seedword
+        self.n = n
         
     @hud
     def generate(self, hud):
@@ -53,7 +54,7 @@ class GnewsGenerator(Generator):
     @hud
     def generate_news_batch(self, n, hud, task):
         news = []
-        for _ in range(n):
+        for _ in range(self.n):
             news.append(self.generate_news())
             hud.update(task, advance=1)
 
