@@ -39,11 +39,13 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
+# Aliased: the fixture below carries the module's name.
+from looksatwords.tests.fixtures import stub_harness as archive_stub
+
 pytestmark = [pytest.mark.e2e, pytest.mark.screenshots]
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 PICS = REPO / "docs" / "pics"
-FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "harness_archive.json"
 
 
 def _free_port() -> int:
@@ -69,25 +71,9 @@ def _make_handler(archive):
             self.wfile.write(body)
 
         def do_GET(self):
-            path = self.path.split("?")[0]
-            if path == "/v1/threads":
-                index = {k: v for k, v in archive.items() if not k.startswith("_")}
-                return self._send(200, index)
-
-            parts = path.strip("/").split("/")
-            # /v1/threads/{source}/{id}[/deltas]
-            if len(parts) >= 4 and parts[0] == "v1" and parts[1] == "threads":
-                key = f"{parts[2]}/{parts[3]}"
-                if len(parts) == 5 and parts[4] == "deltas":
-                    d = archive["_deltas"].get(key)
-                    return self._send(200, d) if d else self._send(404, {"detail": "no deltas"})
-                body = archive["_bodies"].get(key)
-                # The fixture deliberately indexes one thread it cannot produce,
-                # so the run exercises the index/archive disagreement without
-                # anything having to be broken.
-                return self._send(200, body) if body else self._send(404, {"detail": "not held"})
-
-            self._send(404, {"detail": "not found"})
+            # The route logic lives in fixtures/stub_harness.py, shared with the
+            # API tests that answer the same fixture without a socket.
+            self._send(*archive_stub.answer(archive, self.path))
 
     return Handler
 
@@ -103,7 +89,7 @@ STUB_PORT = 13141
 
 @pytest.fixture(scope="module")
 def stub_harness():
-    archive = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    archive = archive_stub.load()
     port = STUB_PORT
     try:
         server = HTTPServer(("127.0.0.1", port), _make_handler(archive))
