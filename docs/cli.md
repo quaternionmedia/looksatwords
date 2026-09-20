@@ -40,7 +40,7 @@ uv run looksatwords serve --reload        # auto-reload while developing
 uv run looksatwords serve --host 0.0.0.0  # listen on all interfaces
 ```
 
-Three settings matter and none is a flag:
+The settings that matter are not flags:
 
 - **`LOOKSATWORDS_PORT`** moves this server off its default. The default is
   the org's allocation for this reader -- the governance corpus gives each

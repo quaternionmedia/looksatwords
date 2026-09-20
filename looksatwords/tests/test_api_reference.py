@@ -3,8 +3,8 @@
 The sibling of `test_cli_reference.py`, for the same reason: prose describing
 behaviour in a second place drifts, and the drift is invisible at any single
 commit. When this guard was written the page's overview tables omitted every
-route under `/api/harness/` -- five routes a reader of the page could not know
-were there -- while every route the page did list existed.
+route under `/api/harness/` -- routes a reader of the page could not know were
+there -- while every route the page did list existed.
 
 BOTH DIRECTIONS, BECAUSE ONLY ONE OF THEM IS OBVIOUS. A route the page omits
 is found by a reader who already knows it exists. A documented route the app
@@ -21,6 +21,13 @@ row failed `test_every_served_route_is_documented`; adding a `/api/harness/telep
 row failed `test_every_documented_route_is_served`; misspelling that route's
 `###` heading failed `test_every_harness_route_has_its_own_section`. Restored,
 all pass.
+
+TWO WAYS AROUND IT, FOUND BY A REVIEWER AND CLOSED THE SAME DAY. A route served
+from a mounted sub-application is not an `APIRoute`, so a `Mount` under `/api/`
+was invisible to both directions: `test_nothing_under_api_is_mounted` refuses
+one. And a table row whose path lacked backticks rendered for a reader while the
+row pattern skipped it: `test_every_table_row_is_readable` fails on such a row
+rather than ignoring it.
 """
 
 import pathlib
@@ -64,6 +71,38 @@ def _served() -> set[str]:
         for method in route.methods - {"HEAD", "OPTIONS"}:
             out.add(_shape(method, route.path))
     return out
+
+
+def test_nothing_under_api_is_mounted():
+    """A `Mount` under `/api/` serves routes this guard cannot see.
+
+    Every served route is compared as an `APIRoute`; a sub-application mounted
+    under the API prefix would answer requests while appearing on neither side.
+    None exists, and this fails the day one does -- the remedy is to register
+    the routes on the application, where the page can be read against them.
+    """
+    mounted = [
+        r.path for r in app.routes
+        if not isinstance(r, APIRoute) and getattr(r, "path", "").startswith("/api")
+    ]
+    assert not mounted, (
+        f"mounted under /api, invisible to this guard: {mounted}. Register the "
+        f"routes on the application instead of mounting a sub-application.")
+
+
+def test_every_table_row_is_readable():
+    """A row this guard cannot parse is a row a reader can see and it cannot."""
+    m = TABLES.search(DOC.read_text(encoding="utf-8"))
+    assert m
+    unread = []
+    for line in m.group(1).splitlines():
+        if not re.match(r"^\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|", line):
+            continue
+        if not ROW.match(line):
+            unread.append(line.strip())
+    assert not unread, (
+        f"these rows name a method but their path is not in backticks, so the "
+        f"guard skipped them while a reader saw them: {unread}")
 
 
 def test_the_guard_can_read_both_sides():
