@@ -263,18 +263,7 @@ def get_conversation_analytics(
     
     return AnalyticsResponse(
         conversation_id=conversation_id,
-        aggregated=AggregatedAnalytics(
-            total_messages=aggregated["total_messages"],
-            total_words=aggregated["total_words"],
-            average_words_per_message=aggregated["average_words_per_message"],
-            average_sentiment=SentimentScore(**aggregated["average_sentiment"]),
-            overall_sentiment=aggregated["overall_sentiment"],
-            word_frequency=[
-                WordFrequencyItem(word=wf["word"], count=wf["count"])
-                for wf in aggregated["word_frequency"]
-            ],
-            pos_distribution=aggregated["pos_distribution"],
-        ),
+        aggregated=AggregatedAnalytics.model_validate(aggregated),
         sentiment_timeline=[
             SentimentTimelinePoint(
                 time=st["time"],
@@ -302,16 +291,29 @@ def analyze_conversation_with_analytics(
     word frequency, and grammar analytics in a single response.
     """
     # Use backend visualizer for thread analysis
+    return _analyze_and_store(request.text, request.title, session)
+
+
+def _analyze_and_store(text: str, title: Optional[str], session: Session):
+    """Parse, analyse and store one conversation, whatever produced its text.
+
+    ONE PATH, TWO CALLERS. A person pasting into the box and the harness route
+    pulling a thread reach exactly this function, so a conversation read off the
+    archive is analysed by the same code, stored in the same table and appears
+    in the same dashboard list as one typed by hand. A second copy of this would
+    drift, and the drift would be invisible: both would still return a
+    conversation.
+    """
     visualizer = ThreadVisualizerBackend(use_nltk=False)
-    time_points = visualizer.parseConversation(request.text)
+    time_points = visualizer.parseConversation(text)
     visualizer.identifyThreads()
     
     # Run NLTK analytics
     analytics_service = get_analytics_service()
     analytics = analytics_service.analyze_conversation(time_points)
-    
+
     # Create title if not provided
-    title = request.title or f"Conversation {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    title = title or f"Conversation {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     
     # Prepare thread data for storage
     threads_data = []
@@ -338,17 +340,17 @@ def analyze_conversation_with_analytics(
     # Create conversation record
     conversation = Conversation(
         title=title,
-        text=request.text,
+        text=text,
         total_duration=visualizer.totalDuration,
         speakers=visualizer.speakers,
         threads=threads_data,
         tangents=tangents_data
     )
-    
+
     session.add(conversation)
     session.commit()
     session.refresh(conversation)
-    
+
     # Build aggregated analytics response
     aggregated = analytics["aggregated"]
     
@@ -359,18 +361,7 @@ def analyze_conversation_with_analytics(
         speakers=conversation.speakers,
         threads=conversation.threads,
         tangents=conversation.tangents,
-        analytics=AggregatedAnalytics(
-            total_messages=aggregated["total_messages"],
-            total_words=aggregated["total_words"],
-            average_words_per_message=aggregated["average_words_per_message"],
-            average_sentiment=SentimentScore(**aggregated["average_sentiment"]),
-            overall_sentiment=aggregated["overall_sentiment"],
-            word_frequency=[
-                WordFrequencyItem(word=wf["word"], count=wf["count"])
-                for wf in aggregated["word_frequency"]
-            ],
-            pos_distribution=aggregated["pos_distribution"],
-        ),
+        analytics=AggregatedAnalytics.model_validate(aggregated),
         sentiment_timeline=[
             SentimentTimelinePoint(
                 time=st["time"],
@@ -407,13 +398,15 @@ class GenerateConversationResponse(BaseModel):
 def generate_conversation(request: GenerateConversationRequest):
     """Generate a sample conversation using the LLM.
     
-    Uses Ollama/llama3.1 to generate a realistic conversation
+    Uses the Ollama model named by LOOKSATWORDS_OLLAMA_MODEL to generate a realistic conversation
     on a given topic with specified speakers.
     """
     try:
         import ollama
         
-        client = ollama.Client(host="http://localhost:11434")
+        from looksatwords.llm import HOST, MODEL
+
+        client = ollama.Client(host=HOST)
         
         # Default speaker names
         speakers = request.speaker_names or ["Alice", "Bob", "Carol", "Dave"][:request.num_speakers]
@@ -423,7 +416,7 @@ def generate_conversation(request: GenerateConversationRequest):
         topic = request.topic
         if not topic:
             topic_response = client.chat(
-                model="llama3.1",
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": "Generate a single interesting conversation topic in 3-5 words. Just the topic, nothing else."},
                     {"role": "user", "content": "Give me a random interesting topic for a conversation."}
@@ -445,7 +438,7 @@ Requirements:
 Generate only the conversation, no explanations or headers."""
 
         response = client.chat(
-            model="llama3.1",
+            model=MODEL,
             messages=[
                 {
                     "role": "system", 
@@ -957,7 +950,7 @@ def gather_news(request: GatherRequest):
 def generate_news(request: GenerateRequest):
     """Generate synthetic news articles using LLM.
     
-    Uses Ollama/llama3.1 to create realistic news headlines and descriptions
+    Uses the Ollama model named by LOOKSATWORDS_OLLAMA_MODEL to create realistic news headlines and descriptions
     based on a seed word or topic.
     """
     news_service = get_news_service()
@@ -1135,6 +1128,212 @@ def get_conversation_visualizations(
         "conversation_id": conversation_id,
         "visualizations": {k: v.model_dump() for k, v in visualizations.items()}
     }
+
+
+# ============ Harness Seam ============
+#
+# READ-ONLY, AND NOTHING HERE IMPORTS qmcp. `looksatwords/harness.py` carries
+# the reasoning; the short version is that the archive is somebody else's
+# record with one author, and this is a reader. Every call below is a GET
+# against loopback.
+#
+# WHY THESE EXIST. Because the answer to "what can this project do" was "paste
+# a conversation into a box", which is a person doing by hand what the harness
+# already holds hundreds of.
+
+
+class HarnessStatusOut(BaseModel):
+    """Whether the archive answered, and what it said.
+
+    `reachable` is first because it is the field that decides how to read the
+    rest. `threads_indexed` is None when nobody answered -- never 0, which is a
+    real count the harness is entitled to report.
+    """
+    reachable: bool
+    base_url: str
+    reason: Optional[str] = None
+    fix: Optional[str] = None
+    generated_at: Optional[str] = None
+    threads_indexed: Optional[int] = None
+    note: Optional[str] = None
+
+
+@app.get("/api/harness/status", response_model=HarnessStatusOut)
+def harness_status():
+    """Is the thread archive answering, and what does it hold."""
+    from looksatwords import harness
+
+    a = harness.index()
+    if not a.reachable:
+        return HarnessStatusOut(
+            reachable=False,
+            base_url=harness.base_url(),
+            reason=a.reason,
+            fix=a.fix,
+        )
+    return HarnessStatusOut(
+        reachable=True,
+        base_url=harness.base_url(),
+        generated_at=a.generated_at,
+        threads_indexed=a.totals.get("threads"),
+        note=(
+            "These figures are the harness's own, as of generated_at, and count "
+            "conversations that were exported and indexed rather than conversations "
+            "that exist."
+        ),
+    )
+
+
+class HarnessThreadOut(BaseModel):
+    source: str
+    id: str
+    title: str
+    turns: int
+    address: Optional[str] = None
+    last_seen: Optional[str] = None
+
+
+class HarnessThreadsOut(BaseModel):
+    reachable: bool
+    reason: Optional[str] = None
+    fix: Optional[str] = None
+    total_indexed: Optional[int] = None
+    listed: int = 0
+    threads: List[HarnessThreadOut] = []
+
+
+@app.get("/api/harness/threads", response_model=HarnessThreadsOut)
+def harness_threads(
+    limit: int = 50,
+    source: Optional[str] = None,
+    min_turns: int = 2,
+):
+    """The archive's index, largest threads first.
+
+    `listed` and `total_indexed` are both returned and are different numbers
+    whenever a filter or the limit bites. Returning only the rows would let a
+    reader take the length of the list for the size of the archive.
+    """
+    from looksatwords import harness
+
+    a = harness.index()
+    if not a.reachable:
+        return HarnessThreadsOut(reachable=False, reason=a.reason, fix=a.fix)
+
+    rows = [x for x in a.threads if x.get("turns", 0) >= min_turns]
+    if source:
+        rows = [x for x in rows if x.get("source") == source]
+    rows.sort(key=lambda x: x.get("turns", 0), reverse=True)
+
+    return HarnessThreadsOut(
+        reachable=True,
+        total_indexed=a.totals.get("threads"),
+        listed=len(rows[:limit]),
+        threads=[
+            HarnessThreadOut(
+                source=x.get("source", ""),
+                id=x.get("id", ""),
+                title=x.get("title") or "(untitled)",
+                turns=x.get("turns", 0),
+                address=x.get("address"),
+                last_seen=x.get("last_seen"),
+            )
+            for x in rows[:limit]
+        ],
+    )
+
+
+class HarnessIngestOut(ConversationWithAnalyticsResponse):
+    """An analysed thread, plus what reading it off the archive cost.
+
+    `conversion` is not decoration. Turn text is collapsed to one line and long
+    threads are cut at a limit, and both are invisible in the numbers above it.
+
+    `text` is the converted transcript, returned so the panel can put on screen
+    exactly what was analysed. A visualisation beside an editable box holding
+    something else is how somebody edits one conversation and analyses another.
+    """
+    conversion: dict
+    text: str
+
+
+@app.post("/api/harness/threads/{source}/{thread_id}/analyze",
+          response_model=HarnessIngestOut)
+def harness_analyze_thread(
+    source: str,
+    thread_id: str,
+    limit: int = 400,
+    session: Session = Depends(get_session),
+):
+    """Pull one thread from the archive and run it through the analysis.
+
+    THE HARNESS IS NOT TOLD ANYTHING. This reads, converts and stores locally;
+    no result travels back. The archive stays one record with one author.
+    """
+    from looksatwords import harness
+
+    fetched = harness.thread(source, thread_id)
+    if fetched.thread is None:
+        # 409 when the archive answered and disagrees with its own index; 503
+        # when nobody answered. Both were 502 and read as one problem.
+        raise HTTPException(
+            status_code=409 if fetched.answered else 503,
+            detail=f"{fetched.reason} {fetched.fix}",
+        )
+    t = fetched.thread
+
+    text, report = harness.as_conversation(t, limit=limit)
+    if not text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{source}/{thread_id} has {report['turns_total']} turn(s) and no "
+                "readable text in any of them. This is an empty thread, not an "
+                "unreachable archive."
+            ),
+        )
+
+    title = t.title or f"{source}/{thread_id[:8]}"
+    result = _analyze_and_store(text, f"[harness] {title}", session)
+    return HarnessIngestOut(**result.model_dump(), conversion=report, text=text)
+
+
+@app.get("/api/harness/threads/{source}/{thread_id}/deltas")
+def harness_thread_deltas(source: str, thread_id: str):
+    """What the harness says this thread settled.
+
+    THE HARNESS'S OWN ANSWER, RENDERED RATHER THAN RECOMPUTED. This project
+    could derive its own opinion of what a conversation decided from the same
+    turns, and that would be a second record with a second author. qmcp owns
+    this one; the panel shows it.
+    """
+    from looksatwords import harness
+
+    d = harness.deltas(source, thread_id)
+    if d is None:
+        a = harness.index()
+        raise HTTPException(
+            status_code=502 if a.reachable else 503,
+            detail=(
+                f"The harness did not produce deltas for {source}/{thread_id}."
+                if a.reachable
+                else f"{a.reason} {a.fix}"
+            ),
+        )
+    return d
+
+
+@app.get("/api/harness/neighbours")
+def harness_neighbours():
+    """The sibling services, and whether either answered just now.
+
+    A LINK, NOT AN INTEGRATION. This reports reachability and nothing else.
+    Neither service is imported, neither is a dependency, and nothing here
+    invents what they would have said if they were running.
+    """
+    from looksatwords import harness
+
+    return {"neighbours": harness.neighbours()}
 
 
 # Mount static files for frontend assets (css/, js/, etc.)

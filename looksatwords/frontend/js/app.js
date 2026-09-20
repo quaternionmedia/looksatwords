@@ -207,9 +207,20 @@ export class ConversationVisualizerApp {
     async analyzeWithBackend(text) {
         // Use the new endpoint that includes analytics
         const response = await this.apiClient.analyzeWithAnalytics(text);
-        
-        console.log('Backend response:', response);
-        
+        this.applyAnalysisResponse(response);
+    }
+
+    /**
+     * Populate the view from an analysis response, whoever fetched it.
+     *
+     * ONE RENDERING PATH, TWO SOURCES. A transcript typed into the box and a
+     * thread pulled off the harness archive arrive here as the same object and
+     * are drawn by the same code. A second path would drift, and the drift
+     * would be invisible: both would still draw something.
+     *
+     * @param {Object} response - an analyze-with-analytics shaped payload
+     */
+    applyAnalysisResponse(response) {
         this.data.conversationId = response.conversation_id;
         this.data.totalDuration = response.total_duration;
         
@@ -2007,6 +2018,34 @@ function getApp() {
 }
 
 // Global function exports for HTML onclick handlers
+/**
+ * Draw a conversation the harness produced.
+ *
+ * THE PANEL DOES NOT DRAW. It fetches, and hands the result here, so the
+ * archive path and the paste path converge before anything reaches the screen.
+ */
+window.renderHarnessResult = function(response) {
+    const app = getApp();
+    app.data.clear();
+    app.applyAnalysisResponse(response);
+    app.renderVisualization();
+    app.reporter.generateReport(
+        app.data.threads, app.data.tangents, app.data.speakers, app.data.totalDuration
+    );
+    setTimeout(() => {
+        app.animator.setData(app.data.threads, app.data.tangents, app.data.totalDuration, app.viewMode);
+        app.animator.animateAppearance();
+        setTimeout(() => { app.animationComplete = true; }, 2500);
+    }, 100);
+
+    // Put the source text in the box so the thing on screen and the thing in
+    // the editable field are the same conversation. A visualisation that
+    // disagrees with the text above it is how somebody edits one and analyses
+    // the other.
+    const input = document.getElementById('textInput');
+    if (input && response.text) input.value = response.text;
+};
+
 window.analyzeThreads = async function() {
     await getApp().analyze();
 };

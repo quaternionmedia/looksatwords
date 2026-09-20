@@ -1,6 +1,22 @@
+import os
+
 import ollama
 
-host_url = "http://localhost:11434"
+# WHERE OLLAMA ANSWERS, AND WHY ONLY HALF OF THIS IS A SETTING.
+#
+# THE MODEL IS A SETTING. Which model a machine has pulled is that machine's
+# business, and a hardcoded name fails with a 404 naming the model rather than
+# the fix -- `llama3.1` against a box holding only `qwen2.5-coder:7b` is the
+# run that established this.
+#
+# THE HOST IS NOT A SETTING. It is loopback. A client that could be pointed at
+# another machine is how "generated on this machine only" stops being true, and
+# every corpus this project sits beside makes the same split: the port moves,
+# the host does not. Here not even the port moves, because Ollama publishes one.
+HOST = "http://localhost:11434"
+MODEL = os.environ.get("LOOKSATWORDS_OLLAMA_MODEL", "llama3.1")
+
+host_url = HOST
 publisher = "Made by Ollama"
 
 news_bot = ollama.Client(host=host_url)
@@ -34,7 +50,7 @@ def ask(
         str: The content of the model's response message.
     """
     response = news_bot.chat(
-        model="llama3.1",
+        model=MODEL,
         messages=[
             *context,
             {

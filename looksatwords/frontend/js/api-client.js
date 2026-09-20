@@ -684,6 +684,66 @@ export class ApiClient {
      * @param {number} conversationId - Conversation ID
      * @returns {Promise<Object>} All visualization plots
      */
+    // ==================== HARNESS SEAM ====================
+    //
+    // Read-only against qmcp's thread archive, over loopback. Nothing here
+    // writes to the archive: it stays one record with one author. See
+    // looksatwords/harness.py for the reasoning.
+    //
+    // EVERY ONE OF THESE CAN COME BACK `reachable: false`. That is a different
+    // answer from an empty archive and callers must render it differently --
+    // a panel showing zero rows when nobody answered is the failure these were
+    // written against.
+
+    async getHarnessStatus() {
+        const response = await fetch(`${this.baseUrl}/harness/status`);
+        if (!response.ok) {
+            throw new Error(`Failed to reach the harness route: ${response.status}`);
+        }
+        return await response.json();
+    }
+
+    async getHarnessThreads({ limit = 40, source = null, minTurns = 2 } = {}) {
+        const params = new URLSearchParams({ limit, min_turns: minTurns });
+        if (source) params.set('source', source);
+        const response = await fetch(`${this.baseUrl}/harness/threads?${params}`);
+        if (!response.ok) {
+            throw new Error(`Failed to list threads: ${response.status}`);
+        }
+        return await response.json();
+    }
+
+    async analyzeHarnessThread(source, threadId, limit = 400) {
+        const response = await fetch(
+            `${this.baseUrl}/harness/threads/${source}/${threadId}/analyze?limit=${limit}`,
+            { method: 'POST' }
+        );
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.detail || `Analysis failed: ${response.status}`);
+        }
+        return await response.json();
+    }
+
+    async getHarnessThreadDeltas(source, threadId) {
+        const response = await fetch(
+            `${this.baseUrl}/harness/threads/${source}/${threadId}/deltas`
+        );
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.detail || `Failed to read deltas: ${response.status}`);
+        }
+        return await response.json();
+    }
+
+    async getHarnessNeighbours() {
+        const response = await fetch(`${this.baseUrl}/harness/neighbours`);
+        if (!response.ok) {
+            throw new Error(`Failed to check neighbours: ${response.status}`);
+        }
+        return await response.json();
+    }
+
     async getConversationVisualizations(conversationId) {
         const response = await fetch(`${this.baseUrl}/conversations/${conversationId}/visualizations`, {
             method: 'GET',

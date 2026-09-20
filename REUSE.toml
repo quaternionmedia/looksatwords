@@ -1,0 +1,60 @@
+version = 1
+SPDX-PackageName = "looksatwords"
+SPDX-PackageSupplier = "Quaternion Media <peter.kagstrom@gmail.com>"
+SPDX-PackageDownloadLocation = "https://github.com/quaternionmedia/looksatwords"
+
+# Licensing is declared here rather than as per-file SPDX headers. Most of the
+# annotatable surface is Python, JavaScript and Markdown whose opening lines
+# are already load-bearing (module docstrings, a document's H1), the notebooks
+# under looksatwords/notebooks/ carry JSON that a header would have to be
+# smuggled into, and the two governance pointer files are symlinks, which
+# cannot carry a header at all -- writing one writes into the target. See the
+# outbound-licensing record's section 12 in governance/qm/records/.
+#
+# Paths are matched by the last block that matches, so the blocks below win
+# over the default at the top.
+
+# --- This project's own code and prose --------------------------------------
+# The copyright line reproduces what LICENSE and pyproject.toml assert today.
+# It names an individual, while the outbound-licensing record's section 0
+# places copyright in Quaternion Media -- that gap is a conflict this project's
+# adoption record carries, and it is a human's decision rather than something
+# this file settles by declaring a different string.
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2026 Peter Kagstrom"
+SPDX-License-Identifier = "MIT"
+
+# --- Copy-forward governance prose from the seed (outbound section 2) -------
+# AGENTS.md is project-seed/ide/AGENTS.md with this project's own sections
+# appended; CLAUDE.md and .github/copilot-instructions.md are symlinks to it
+# and follow their target's licence rather than their directory's.
+[[annotations]]
+path = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  ".github/copilot-instructions.md",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Copyright (c) 2026 Quaternion Media"
+SPDX-License-Identifier = "CC0-1.0"
+
+# --- Executable and machine-read seed files (outbound section 3) ------------
+# Copied verbatim from project-seed/ci/ and project-seed/ide/.vscode/. CC0
+# grants no patent licence and is not fit for executable content, which is why
+# these differ from the block above.
+[[annotations]]
+path = [
+  ".github/workflows/adr-lint.yml",
+  ".github/workflows/one-pr-check.yml",
+  ".github/workflows/reuse-lint.yml",
+  ".github/workflows/signature-check.yml",
+  ".github/workflows/submodule-check.yml",
+  ".github/workflows/tag-claims.yml",
+  ".vscode/settings.json",
+  ".vscode/extensions.json",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Copyright (c) 2026 Quaternion Media"
+SPDX-License-Identifier = "Apache-2.0"

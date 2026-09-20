@@ -1,0 +1,79 @@
+# A version tag carries the claims a version tag makes.
+#
+# SEED FILE: copy verbatim into .github/workflows/, the same discipline as
+# adr-lint.yml and one-pr-check.yml. Only the workflow is copied -- it runs
+# check_tag_claims.py out of the governance submodule, so a fix to the rule
+# reaches every project on its next pin bump instead of needing N copies
+# updated.
+#
+# The rule is records/DRAFT-version-tags-are-claims.md, §2 and §6: a `v*` tag
+# asserts a human reviewed the change set, a human manually tested it against
+# its real runtime, and deterministic automated validation passed -- and the
+# annotation names all three, including what the automated gate did not cover.
+#
+# WHAT THIS FAILS, AND WHO CAN FIX IT
+#
+# It fails a pushed `v*` tag that is lightweight, misnamed, or missing one of
+# the four annotation fields. The fix belongs to whoever cut the tag: delete it,
+# and cut it again with `git tag -a`. Nobody else can repair it, which is why
+# this runs on the tag push and not on anybody's pull request.
+#
+# WHAT IT DOES NOT COVER, and the list is the honest part:
+#
+#   - It cannot tell whether the review or the manual test happened. It reads
+#     an annotation a human wrote. The improvement on offer is that the claim
+#     is now written down against a name, not that it is verified.
+#   - It does not gate tag *creation*. §7 asks for a host-side tag-protection
+#     ruleset restricting who may create `v*`; that is repository settings, not
+#     a workflow, and a workflow cannot substitute for it -- this runs after the
+#     tag exists.
+#   - It does not run the project's tests. §3's determinism clause is checked by
+#     `check_tag_claims.py --test-output <file>` against a captured run, and the
+#     capture is the project's release job to produce, because no seed file
+#     knows this project's test command. Wire it there; do not pipe the run
+#     through `tee` on the way, since a pipe replaces the exit code and this
+#     corpus has read a failing check as passing twice that way.
+
+name: Tag claims
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # The audit over every existing tag, on request. Deliberately not on
+  # pull_request: one bad legacy tag would then fail every unrelated pull
+  # request in the repository, for a reason its author cannot fix.
+  workflow_dispatch:
+
+# No cancellation. A tag push happens once and the run IS the record of what
+# that tag reported; superseding it would destroy the only evidence.
+permissions:
+  contents: read
+
+jobs:
+  claims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          # The tag object itself is the subject. A shallow checkout can arrive
+          # without it, and the check would then report "no such tag" for a tag
+          # that exists -- a tooling fault dressed as a finding.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: This tag carries its claims
+        if: github.ref_type == 'tag'
+        run: |
+          python governance/qm/project-seed/ci/check_tag_claims.py \
+            --tag "$GITHUB_REF_NAME"
+
+      - name: Every v* tag in this repository carries its claims
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          python governance/qm/project-seed/ci/check_tag_claims.py --all

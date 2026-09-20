@@ -1,12 +1,22 @@
 """Database configuration and session management."""
 
+import os
 from pathlib import Path
 from typing import Generator
 
 from sqlmodel import Session, SQLModel, create_engine
 
-# Database file location
-DATABASE_PATH = Path(__file__).parent.parent.parent / "looksatwords.db"
+# WHICH DATABASE, AND WHY IT IS A SETTING.
+#
+# The default is this repository's own `looksatwords.db`, which is what a person
+# running `looksatwords serve` wants. `LOOKSATWORDS_DB` moves it, and the reason
+# is that anything demonstrating the tool -- a screenshot run, a walkthrough, an
+# assistant showing what the analysis does -- writes conversations into whatever
+# database the process is pointed at. Without this the only database available
+# was the operator's, and demo rows landed beside real ones with nothing to tell
+# them apart.
+DEFAULT_DATABASE_PATH = Path(__file__).parent.parent.parent / "looksatwords.db"
+DATABASE_PATH = Path(os.environ.get("LOOKSATWORDS_DB", DEFAULT_DATABASE_PATH))
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 # Create engine

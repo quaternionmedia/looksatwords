@@ -1,0 +1,109 @@
+name: ADR lint
+
+# SEED FILE: copy verbatim into a forking project's .github/workflows/
+# (see adr/README.md's "CI enforcement" section).
+#
+# Enforces all four checks the decision-record-discipline record names:
+# banned vocabulary in a pre-ratification draft, a numbered filename whose
+# Status is not ratified, an edit to a ratified record's body outside its
+# Amendments section, and an index/directory mismatch.
+#
+# Only this YAML file is copied. The lint itself runs from
+# $QM_SUBMODULE/project-seed/ci/adr_lint.py -- inside the submodule the
+# project already vendors -- so the logic is always the version the project's
+# governance pin points at, and improving it improves every project on the
+# next pin bump. A copied script would be a fifth thing to keep in sync
+# across N repositories, which is the drift this arrangement avoids.
+#
+# Assumes the branch-per-project ADR model: this project's own adr/ directory
+# lives inside the governance submodule, on this project's dedicated branch.
+#
+# Two knobs, both in env: below. Nothing else in this file needs editing.
+#   QM_SUBMODULE -- where this project mounts the governance submodule.
+#                   `governance/qm` is the documented default. A project that
+#                   mounts it somewhere else sets the path once here rather
+#                   than repeating it in every step.
+#
+#                   This used to name a project and where it mounted, which
+#                   was a claim with an expiry date: the project moved to the
+#                   default and the sentence stayed, describing a state that
+#                   had ended and referring to a pull request that had merged.
+#                   The knob is documented by what it does.
+#   RECORDS_DIR  -- leave empty for the branch-per-project model. Set it to a
+#                   local path (adr) only if this project keeps adr/ in its
+#                   own working tree instead of on its governance branch.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One run per branch per workflow. A second push supersedes the first: nobody
+# reads the result of a run whose commit has already been replaced, and the
+# minutes are real -- 55 of this repository's 129 runs on 2026-08-11 came from
+# five iterative pushes to two pull request branches, where only the last
+# mattered.
+#
+# Cancellation is scoped to pull requests deliberately. On the default branch
+# and on a project branch the run IS the record of what that commit reported,
+# and cancelling it to start a newer one destroys the only evidence that the
+# earlier commit was ever checked.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  QM_SUBMODULE: governance/qm
+  RECORDS_DIR: ''
+
+jobs:
+  adr-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          # Full history: the append-only check diffs against the base.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = 'pull_request' ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            # On a push, diff the whole pushed range. HEAD^ would cover only the
+            # last commit, so an edit to a ratified body earlier in the same
+            # push would pass unseen. github.event.before is all zeros for a
+            # newly created ref, which has no range to compare against.
+            before='${{ github.event.before }}'
+            if [ -n "$before" ] && [ "$before" != '0000000000000000000000000000000000000000' ]                && git rev-parse --verify -q "$before^{commit}" >/dev/null; then
+              echo "ref=$before" >> "$GITHUB_OUTPUT"
+            elif git rev-parse --verify -q HEAD^ >/dev/null; then
+              echo "ref=HEAD^" >> "$GITHUB_OUTPUT"
+            else
+              echo "ref=" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: ADR lint
+        run: |
+          records="${RECORDS_DIR:-$QM_SUBMODULE/adr}"
+          if [ ! -d "$records" ]; then
+            echo "No records directory at '$records'."
+            echo "Set QM_SUBMODULE if this project mounts the governance"
+            echo "submodule elsewhere, or RECORDS_DIR if it keeps adr/ locally."
+            exit 1
+          fi
+          python "$QM_SUBMODULE/project-seed/ci/adr_lint.py" \
+            --records-dir "$records" \
+            --index "$records/README.md" \
+            ${{ steps.base.outputs.ref && format('--base-ref {0}', steps.base.outputs.ref) }}

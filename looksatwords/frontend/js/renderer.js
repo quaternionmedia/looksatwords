@@ -119,11 +119,69 @@ export class VisualizationRenderer {
     renderThreads(threads, totalDuration) {
         // Ensure totalDuration is valid to prevent division by zero
         const safeDuration = Math.max(totalDuration, 1);
-        
+
+        this.messageSlot = this.smallestGap(threads);
+        this.renderLaneRules(threads, safeDuration);
+
         threads.forEach((thread, index) => {
             this.renderThreadPath(thread, index, safeDuration);
             this.renderThreadNodes(thread, index, safeDuration);
             this.renderThreadLabel(thread, index);
+        });
+    }
+
+    /**
+     * The conversation's beat: the smallest step between two moments.
+     *
+     * Taken from the data rather than assumed, because a transcript with
+     * timestamps and one without are spaced differently, and a rest threshold
+     * built on a constant would call every gap a rest in one and none in the
+     * other.
+     *
+     * @param {Thread[]} threads
+     * @returns {number} seconds between adjacent messages, or 30 if unknowable
+     */
+    smallestGap(threads) {
+        let smallest = Infinity;
+        threads.forEach(thread => {
+            const times = (thread.points || []).map(p => p.time).sort((a, b) => a - b);
+            for (let i = 1; i < times.length; i++) {
+                const gap = times[i] - times[i - 1];
+                if (gap > 0 && gap < smallest) smallest = gap;
+            }
+        });
+        return Number.isFinite(smallest) ? smallest : 30;
+    }
+
+    /**
+     * Draw one faint rule per lane, full width, behind everything.
+     *
+     * The staff. Without it a topic that is silent for most of the
+     * conversation is a couple of marks floating in the dark, and a reader
+     * cannot tell whether the row is empty or whether they have lost it.
+     *
+     * @param {Thread[]} threads
+     * @param {number} totalDuration
+     */
+    renderLaneRules(threads, totalDuration) {
+        threads.forEach((thread, index) => {
+            const y = this.laneY(index);
+            const rule = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            rule.setAttribute('x1', 40);
+            rule.setAttribute('x2', '100%');
+            rule.setAttribute('y1', y);
+            rule.setAttribute('y2', y);
+            rule.setAttribute('stroke', thread.color);
+            rule.setAttribute('stroke-width', '1');
+            // DASHED, BECAUSE THE RULE IS WHERE THE REST IS. Solid, it competed
+            // with the thread line; at 0.14 it was invisible on this background
+            // and a lane's silent stretch looked like the end of the lane
+            // rather than a topic nobody was talking about. Dashes read as
+            // "still here, nothing sounding" the way a rest does.
+            rule.setAttribute('stroke-dasharray', '2,6');
+            rule.setAttribute('opacity', '0.35');
+            rule.classList.add('lane-rule');
+            this.svg.appendChild(rule);
         });
     }
 
@@ -141,7 +199,9 @@ export class VisualizationRenderer {
         path.setAttribute('stroke', thread.color);
         path.setAttribute('stroke-width', '3');
         path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0.7');
+        // No `opacity` attribute: `.thread-path` is revealed through
+        // inline style by animation.js, and a presentation attribute here
+        // loses to the stylesheet while misdirecting anime.js.
         path.classList.add('thread-path');
         path.id = `thread-path-${threadIndex}`;
 
@@ -162,18 +222,25 @@ export class VisualizationRenderer {
     }
 
     /**
-     * Calculate Y position for a given thread and point
+     * The centre of one topic's lane. One topic, one height, always.
+     *
+     * A LANE IS A STAFF LINE AND VERTICAL POSITION MEANS ONE THING: which topic
+     * this is. It used to mean three things at once -- the lane, plus
+     * `sin(time * 0.1) * 20`, plus the point's intensity again. The wave was
+     * decoration and carried nothing; the intensity was already in the size of
+     * every node. Between them a topic wandered across 50 pixels, lanes crossed
+     * each other, and reading "when was this topic live" meant tracing a line
+     * through the ones it had tangled with.
+     *
+     * Now: time reads left to right, topic reads top to bottom, and how loud a
+     * moment was reads as the size of the note sitting on the line.
+     *
      * @param {number} threadIndex - Thread index
-     * @param {number} time - Time value for wave effect
-     * @param {number} intensity - Point intensity
-     * @returns {number} Y coordinate
+     * @returns {number} Y coordinate of the lane's centre
      */
-    calculateY(threadIndex, time, intensity) {
+    laneY(threadIndex) {
         const { canvasPadding, threadSpacing } = CONFIG.dimensions;
-        const baseY = canvasPadding + threadIndex * threadSpacing;
-        const waveOffset = Math.sin(time * 0.1) * 20;
-        const intensityOffset = (intensity || 0.5) * 30;
-        return baseY + waveOffset + intensityOffset;
+        return canvasPadding + threadIndex * threadSpacing;
     }
 
     /**
@@ -185,33 +252,44 @@ export class VisualizationRenderer {
      */
     generateThreadPath(thread, threadIndex, totalDuration) {
         if (!thread.points || thread.points.length === 0) return '';
-        
-        const points = thread.points.map(point => ({
+
+        const y = this.laneY(threadIndex);
+        const pts = thread.points.map(point => ({
             x: this.calculateX(point.time, totalDuration),
-            y: this.calculateY(threadIndex, point.time, point.intensity)
+            time: point.time,
         }));
 
-        if (points.length < 2) {
-            // Single point - return a small circle instead
-            return `M ${points[0].x - 5} ${points[0].y} a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0`;
+        if (pts.length < 2) {
+            return `M ${pts[0].x - 5} ${y} a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0`;
         }
 
-        let pathData = `M ${points[0].x} ${points[0].y}`;
+        // A GAP IN A TOPIC IS A REST, AND A REST IS DRAWN AS SILENCE. Every
+        // point of a thread used to be joined to the next one, so a topic
+        // dropped for four minutes and picked up again drew an unbroken line
+        // straight through the part where nobody mentioned it -- which is the
+        // opposite of what the picture is for. `restGap` comes from the
+        // conversation's own message spacing rather than a constant, so a
+        // dense thread and a sparse one are each judged against their own beat.
+        const restGap = (this.messageSlot || 30) * 2.5;
 
-        for (let i = 1; i < points.length; i++) {
-            const prev = points[i - 1];
-            const curr = points[i];
-            
-            // Bezier curve control points
-            const cp1x = prev.x + (curr.x - prev.x) * 0.3;
-            const cp1y = prev.y;
-            const cp2x = prev.x + (curr.x - prev.x) * 0.7;
-            const cp2y = curr.y;
-
-            pathData += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+        const runs = [[pts[0]]];
+        for (let i = 1; i < pts.length; i++) {
+            if (pts[i].time - pts[i - 1].time > restGap) {
+                runs.push([pts[i]]);
+            } else {
+                runs[runs.length - 1].push(pts[i]);
+            }
         }
 
-        return pathData;
+        return runs.map(run => {
+            if (run.length === 1) {
+                // A single sounding moment with silence on both sides. Give it
+                // a short stroke so the lane shows something happened, rather
+                // than leaving the node floating over an empty line.
+                return `M ${run[0].x - 6} ${y} L ${run[0].x + 6} ${y}`;
+            }
+            return `M ${run[0].x} ${y} L ${run[run.length - 1].x} ${y}`;
+        }).join(' ');
     }
 
     /**
@@ -227,7 +305,8 @@ export class VisualizationRenderer {
 
         thread.points.forEach((point, pointIndex) => {
             const x = this.calculateX(point.time, totalDuration);
-            const y = this.calculateY(threadIndex, point.time, point.intensity);
+            // On the line, always. Intensity is the size of the note below.
+            const y = this.laneY(threadIndex);
 
             const node = document.createElement('div');
             node.className = 'thread-node';
@@ -266,7 +345,10 @@ export class VisualizationRenderer {
         const label = document.createElement('div');
         label.className = 'thread-label';
         label.style.color = thread.color;
-        label.style.top = `${CONFIG.dimensions.canvasPadding + threadIndex * CONFIG.dimensions.threadSpacing}px`;
+        // Centred on the lane it names. It used to sit at the lane's nominal
+        // top while the line wandered below it, so on a busy chart the label
+        // and its topic were not obviously the same row.
+        label.style.top = `${this.laneY(threadIndex) - 9}px`;
         label.textContent = thread.name.charAt(0).toUpperCase() + thread.name.slice(1);
         this.canvas.appendChild(label);
     }
@@ -357,8 +439,8 @@ export class VisualizationRenderer {
             const point = allPoints[i];
             const x = this.calculateX(point.time, totalDuration);
             const baseY = canvasPadding + point.speakerIndex * threadSpacing;
-            const waveOffset = Math.sin(point.time * 0.1) * 15;
-            const y = baseY + 30 + waveOffset;
+            // Flat, for the same reason the topic lanes are. See laneY().
+            const y = baseY + 30;
             
             if (i === 0) {
                 pathData = `M ${x} ${y}`;
@@ -366,8 +448,8 @@ export class VisualizationRenderer {
                 const prev = allPoints[i - 1];
                 const prevX = this.calculateX(prev.time, totalDuration);
                 const prevBaseY = canvasPadding + prev.speakerIndex * threadSpacing;
-                const prevWaveOffset = Math.sin(prev.time * 0.1) * 15;
-                const prevY = prevBaseY + 30 + prevWaveOffset;
+                // Flat, matching the lane it leaves. See laneY().
+                const prevY = prevBaseY + 30;
                 
                 // Use bezier curve for smooth transitions
                 const midX = (prevX + x) / 2;
@@ -399,8 +481,8 @@ export class VisualizationRenderer {
             const speakerIndex = speakerIndexMap.get(point.speaker) ?? 0;
             const x = this.calculateX(point.time, totalDuration);
             const baseY = canvasPadding + speakerIndex * threadSpacing;
-            const waveOffset = Math.sin(point.time * 0.1) * 15;
-            const y = baseY + 30 + waveOffset;
+            // Flat, for the same reason the topic lanes are. See laneY().
+            const y = baseY + 30;
             
             if (i === 0) {
                 pathData = `M ${x} ${y}`;
@@ -409,8 +491,8 @@ export class VisualizationRenderer {
                 const prevSpeakerIndex = speakerIndexMap.get(prev.speaker) ?? 0;
                 const prevX = this.calculateX(prev.time, totalDuration);
                 const prevBaseY = canvasPadding + prevSpeakerIndex * threadSpacing;
-                const prevWaveOffset = Math.sin(prev.time * 0.1) * 15;
-                const prevY = prevBaseY + 30 + prevWaveOffset;
+                // Flat, matching the lane it leaves. See laneY().
+                const prevY = prevBaseY + 30;
                 
                 const midX = (prevX + x) / 2;
                 pathData += ` C ${midX} ${prevY}, ${midX} ${y}, ${x} ${y}`;
@@ -421,7 +503,7 @@ export class VisualizationRenderer {
         path.setAttribute('stroke', thread.color);
         path.setAttribute('stroke-width', '2');
         path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0.6');
+        // Revealed through inline style; see the note above.
         path.classList.add('thread-path');
         path.id = `speaker-thread-path-${threadIndex}`;
         
@@ -437,8 +519,8 @@ export class VisualizationRenderer {
         
         const x = this.calculateX(point.time, totalDuration);
         const baseY = canvasPadding + speakerIndex * threadSpacing;
-        const waveOffset = Math.sin(point.time * 0.1) * 15;
-        const y = baseY + 30 + waveOffset;
+        // Flat, for the same reason the topic lanes are. See laneY().
+        const y = baseY + 30;
         
         const node = document.createElement('div');
         node.className = 'thread-node';
@@ -519,8 +601,8 @@ export class VisualizationRenderer {
         // Render nodes for each message
         points.forEach((point, pointIndex) => {
             const x = this.calculateX(point.time, totalDuration);
-            const waveOffset = Math.sin(point.time * 0.1) * 15;
-            const y = baseY + 30 + waveOffset;
+            // Flat, for the same reason the topic lanes are. See laneY().
+            const y = baseY + 30;
             
             const node = document.createElement('div');
             node.className = 'thread-node';
@@ -582,12 +664,11 @@ export class VisualizationRenderer {
         const sourceThread = tangent.sourceThread;
         if (!sourceThread || !threads.includes(sourceThread)) return;
 
-        const { canvasPadding, threadSpacing } = CONFIG.dimensions;
         const startX = this.calculateX(tangent.startTime, totalDuration);
         const endX = this.calculateX(tangent.endTime, totalDuration);
 
         const sourceThreadIndex = threads.indexOf(sourceThread);
-        const sourceY = canvasPadding + sourceThreadIndex * threadSpacing + 20;
+        const sourceY = this.laneY(sourceThreadIndex);
 
         // Calculate arc control points
         const controlY = sourceY - 80;
@@ -604,7 +685,7 @@ export class VisualizationRenderer {
         path.setAttribute('stroke-width', '3');
         path.setAttribute('stroke-dasharray', '6,6');
         path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0.7');
+        // Revealed through inline style; see the note in animation.js.
         path.classList.add('tangent-arc');
         path.id = `tangent-arc-${tangentIndex}`;
 
@@ -622,12 +703,11 @@ export class VisualizationRenderer {
         const sourceThread = tangent.sourceThread;
         if (!sourceThread || !threads.includes(sourceThread)) return;
 
-        const { canvasPadding, threadSpacing } = CONFIG.dimensions;
         const startX = this.calculateX(tangent.startTime, totalDuration);
         const endX = this.calculateX(tangent.endTime, totalDuration);
 
         const sourceThreadIndex = threads.indexOf(sourceThread);
-        const sourceY = canvasPadding + sourceThreadIndex * threadSpacing + 20;
+        const sourceY = this.laneY(sourceThreadIndex);
         const endY = tangent.type === 'resolved' ? sourceY : sourceY + 40;
 
         // Start marker
