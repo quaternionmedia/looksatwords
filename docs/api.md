@@ -1,12 +1,25 @@
 # API Reference
 
-The REST API is available at `http://localhost:8000` when the server is running.
+The REST API answers on the port `serve` binds: the org's allocation for this
+reader, or `LOOKSATWORDS_PORT`. `uv run looksatwords serve --help` prints the
+default, and the examples on this page use it.
 
-**Interactive Docs:** http://localhost:8000/docs
+**Interactive Docs:** http://127.0.0.1:1414/docs -- generated from the code, so
+where this page and `/docs` disagree, `/docs` is what the server does.
+
+The tables under **Endpoints Overview** are checked against the running
+application by `looksatwords/tests/test_api_reference.py`, in both directions:
+a route the app serves and this page omits fails, and a route this page lists
+and the app does not serve fails. Path parameter names are not compared, only
+their positions.
 
 ---
 
 ## Endpoints Overview
+
+<!-- ROUTES: every route the app serves must be in a table below, and every
+     route below must exist. The guard reads everything between these markers;
+     do not rename them. -->
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -55,6 +68,19 @@ The REST API is available at `http://localhost:8000` when the server is running.
 | POST | `/api/visualize/sentiment` | Generate sentiment timeline |
 | POST | `/api/visualize/pos` | Generate POS pie chart |
 | POST | `/api/visualize/speakers` | Generate speaker comparison chart |
+
+### Harness (the thread archive, read over loopback)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/harness/status` | Whether the archive answered, and what it holds |
+| GET | `/api/harness/threads` | The archive's index, largest threads first |
+| POST | `/api/harness/threads/{source}/{thread_id}/analyze` | Pull one thread and run it through the analysis |
+| GET | `/api/harness/threads/{source}/{thread_id}/deltas` | What the harness says the thread settled |
+| GET | `/api/harness/threads/{source}/{thread_id}/topics` | This project's reading of the thread, shaped for a graph |
+| GET | `/api/harness/neighbours` | The sibling services, and whether either answered |
+
+<!-- END ROUTES -->
 
 ---
 
@@ -343,26 +369,26 @@ The analytics endpoints use NLTK to provide:
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://127.0.0.1:1414/health
 
 # Analyze conversation
-curl -X POST http://localhost:8000/api/conversations/analyze \
+curl -X POST http://127.0.0.1:1414/api/conversations/analyze \
   -H "Content-Type: application/json" \
   -d '{"text": "[0:00] Alice: Hello\n[0:30] Bob: Hi!", "title": "Test"}'
 
 # Analyze with analytics
-curl -X POST http://localhost:8000/api/conversations/analyze-with-analytics \
+curl -X POST http://127.0.0.1:1414/api/conversations/analyze-with-analytics \
   -H "Content-Type: application/json" \
   -d '{"text": "[0:00] Alice: Hello\n[0:30] Bob: Hi!", "title": "Test"}'
 
 # Get analytics for existing conversation
-curl http://localhost:8000/api/conversations/1/analytics
+curl http://127.0.0.1:1414/api/conversations/1/analytics
 
 # List conversations
-curl http://localhost:8000/api/conversations
+curl http://127.0.0.1:1414/api/conversations
 
 # Delete conversation
-curl -X DELETE http://localhost:8000/api/conversations/1
+curl -X DELETE http://127.0.0.1:1414/api/conversations/1
 ```
 
 ### Python Examples
@@ -370,7 +396,7 @@ curl -X DELETE http://localhost:8000/api/conversations/1
 ```python
 import requests
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://127.0.0.1:1414"
 
 # Analyze with full analytics
 response = requests.post(f"{BASE_URL}/api/conversations/analyze-with-analytics", json={
@@ -786,3 +812,281 @@ Get all visualizations for a conversation in one request.
 ```
 
 **Requirements:** matplotlib and wordcloud must be installed.
+
+---
+
+## Harness
+
+The thread archive that [qmcp][qmcp] keeps, read over its HTTP seam. Two
+invariants hold across every route in this section, and both are stated and
+argued in `looksatwords/harness.py`:
+
+- **The host is loopback and is not a setting; the port is.** Every call goes
+  to `127.0.0.1`, on `LOOKSATWORDS_HARNESS_PORT` or the harness's own default.
+  Nothing in the environment moves the host, because a client that could be
+  pointed at another machine is how "served to this machine only" stops being
+  true. `looksatwords/tests/test_harness.py` is the test that would have to be
+  deleted on purpose to change this.
+- **Nothing here writes to the archive.** Every call to the harness is a GET.
+  `/analyze` stores its result in *this* project's database and tells the
+  harness nothing; the archive stays one record with one author.
+
+**An unreachable archive is not an empty one.** Every GET in this section
+answers `200` with `reachable: false`, a `reason` and a `fix` naming the
+command when nobody answered, rather than an empty list -- a count of zero and
+a count nobody took are different claims. The two exceptions are `/analyze`,
+which has nothing to store and answers `503`, and `/deltas`, which is the
+harness's own payload and answers `503` when nobody answered or `502` when the
+harness answered without one.
+
+`reachable` is the first field of every response, because it decides how to
+read the rest. Optional fields below are `null` when they do not apply.
+
+### `GET /api/harness/status`
+
+Is the archive answering, and what does it hold.
+
+**Response:**
+```json
+{
+  "reachable": true,
+  "base_url": "http://127.0.0.1:3141",
+  "reason": null,
+  "fix": null,
+  "generated_at": "2026-08-20T15:00:00Z",
+  "threads_indexed": 3,
+  "note": "These figures are the harness's own, as of generated_at, ..."
+}
+```
+
+`threads_indexed` is `null` when nobody answered, never `0`, which is a real
+count the harness is entitled to report. When `reachable` is `false`, `reason`
+says what happened and `fix` names the command.
+
+### `GET /api/harness/threads`
+
+The archive's index, largest threads first.
+
+**Query Parameters:**
+- `limit` - Maximum rows to return (default: 50)
+- `source` - Only threads from one source, as the archive's index names it
+- `min_turns` - Only threads with at least this many turns (default: 2)
+
+**Response:**
+```json
+{
+  "reachable": true,
+  "reason": null,
+  "fix": null,
+  "total_indexed": 3,
+  "listed": 2,
+  "threads": [
+    {
+      "source": "claude",
+      "id": "fixture-seam-0001",
+      "title": "How the panel reads the thread archive",
+      "turns": 16,
+      "address": "quaternionmedia/qmcp/delta/thread-fixture-seam-0001",
+      "last_seen": "2026-08-20T15:00:00Z"
+    }
+  ]
+}
+```
+
+`listed` and `total_indexed` are both returned and differ whenever a filter or
+the limit bites; the length of `threads` is not the size of the archive.
+
+### `POST /api/harness/threads/{source}/{thread_id}/analyze`
+
+Pull one thread off the archive, convert it to the one-line-per-turn transcript
+the analysis reads, analyse it, and store the result here. The harness is told
+nothing.
+
+**Query Parameters:**
+- `limit` - Prose-carrying turns to keep (default: 400). Counts turns with text,
+  not raw turns, because most turns in an assistant archive are tool calls with
+  none.
+
+**Response:** everything `POST /api/conversations/analyze-with-analytics`
+returns, plus:
+```json
+{
+  "conversation_id": 1,
+  "title": "[harness] How the panel reads the thread archive",
+  "...": "...",
+  "conversion": {
+    "turns_total": 16,
+    "turns_with_text": 13,
+    "turns_used": 13,
+    "turns_without_text": 3,
+    "truncated": false,
+    "limit": 60,
+    "partial_at_source": false,
+    "whitespace_collapsed": true
+  },
+  "text": "Operator: We need to decide ...\nAssistant: The obvious move ..."
+}
+```
+
+`conversion` is what reading the thread cost, and it is not decoration: turn
+text is collapsed to one line and long threads are cut at `limit`, and both are
+invisible in the numbers above it. `text` is exactly what was analysed.
+
+**Status codes:** `409` when the archive answered and does not hold the thread
+its index lists (the harness disagreeing with itself; nothing on this side can
+repair it), `503` when nobody answered, `422` when the thread has turns and no
+readable text in any of them.
+
+### `GET /api/harness/threads/{source}/{thread_id}/deltas`
+
+What the harness says this thread settled -- its own payload, rendered rather
+than recomputed, so that there is one record with one author.
+
+**Response:** the harness's `GET /v1/threads/{source}/{id}/deltas` body,
+passed through. **Status codes:** `503` when nobody answered, `502` when the
+harness answered and produced no deltas.
+
+### `GET /api/harness/threads/{source}/{thread_id}/topics`
+
+This project's reading of one archived thread, shaped as a document a graph can
+draw: for each topic, its label, the spans during which it was live, who carried
+it, and whether it was dropped or returned to. Built from the analysis
+`/analyze` stored and **never recomputed** -- a GET here analyses nothing and
+writes nothing. `looksatwords/app/topics_document.py` carries the shaping.
+
+**Response, analysed:**
+```json
+{
+  "source": "claude",
+  "thread_id": "fixture-seam-0001",
+  "harness": {
+    "reachable": true,
+    "base_url": "http://127.0.0.1:3141",
+    "reason": null,
+    "fix": null,
+    "indexed": true,
+    "title": "How the panel reads the thread archive",
+    "address": "quaternionmedia/qmcp/delta/thread-fixture-seam-0001",
+    "turns": 16
+  },
+  "analysed": true,
+  "reason": null,
+  "fix": null,
+  "conversation_id": 1,
+  "title": "[harness] How the panel reads the thread archive",
+  "analysed_at": "2026-09-20T17:26:15",
+  "total_duration": 360.0,
+  "beat": 30.0,
+  "rest_gap": 75.0,
+  "speakers": {
+    "Operator": {"color": "#ff6b6b", "index": 0, "contributions": 7},
+    "Assistant": {"color": "#00d4ff", "index": 1, "contributions": 6}
+  },
+  "topics": [
+    {
+      "label": "Panel",
+      "color": "#00d4ff",
+      "mentions": 7,
+      "speakers": {"Operator": 5, "Assistant": 2},
+      "carried_by": "Operator",
+      "spans": [
+        {"start": 0.0, "end": 180.0, "mentions": 4, "speakers": ["Operator"]},
+        {"start": 270.0, "end": 330.0, "mentions": 3, "speakers": ["Assistant", "Operator"]}
+      ],
+      "rests": 1,
+      "dropped": true,
+      "returned_to": true
+    }
+  ],
+  "tangents": [
+    {
+      "start": 120.0,
+      "end": 180.0,
+      "type": "resolved",
+      "topics": ["environment"],
+      "start_text": "Operator: That is a precondition we can declare, though. Side note - what port?",
+      "resolution_text": "Operator: Back to the seam - so it is HTTP plus a schema, and nothing imports anything."
+    }
+  ]
+}
+```
+
+Two answers, kept apart. `harness` is what the archive said about the thread
+just now -- `indexed` is `null` when nobody answered, never `false`, which is
+the archive's own claim. Everything from `analysed` on is this project's stored
+reading, and it is served whether or not the harness is up.
+
+- `spans` are runs of mentions separated by silence. A gap is a rest when it is
+  longer than `rest_gap`, which is the conversation's own `beat` -- its
+  smallest step between two mentions of one topic -- times the constant the
+  front end's `renderer.js` draws rests with. The two copies of that constant
+  are held equal by `looksatwords/tests/test_harness_topics.py`, so the
+  document and the picture cut a topic at the same silence.
+- `rests` is `len(spans) - 1`. `returned_to` is whether there was a rest and
+  the topic came back after it. `dropped` is whether the topic fell silent for
+  a rest's length at any point, including after its last mention and before
+  the conversation ended.
+- `carried_by` is the speaker with the most mentions; a tie goes to whoever
+  raised it first. `speakers` on a topic counts mentions per speaker; on the
+  document it is the analysis's own speaker table.
+- The time axis is the analysis's: a transcript with `[m:ss]` stamps keeps
+  them, and a thread read off the archive has none, so there the axis is the
+  prose-turn index at the parser's spacing.
+- `tangents` are the digressions the analysis found, with `type` one of
+  `resolved`, `unresolved` or `orphaned`.
+
+**Response, not analysed here:** `200`, with `analysed: false`, `reason`, and
+`fix` naming the `/analyze` call that would produce a reading. `topics` and
+`tangents` are empty. A reading stored before this route existed carries no
+address and reads as not analysed; the remedy is the same call.
+
+```json
+{
+  "source": "chatgpt",
+  "thread_id": "fixture-ports-0002",
+  "harness": {"reachable": true, "indexed": true, "...": "..."},
+  "analysed": false,
+  "reason": "chatgpt/fixture-ports-0002 has not been analysed here.",
+  "fix": "POST /api/harness/threads/chatgpt/fixture-ports-0002/analyze reads it off the archive and stores the reading; then ask again.",
+  "topics": [],
+  "tangents": []
+}
+```
+
+**Response, nobody answered:** `200`, with `harness.reachable: false`, its
+`reason` and `fix`, and `harness.indexed: null`; the `analysed` half is
+answered from the local store as above.
+
+### `GET /api/harness/neighbours`
+
+The sibling services -- dossier and the code maps -- and whether either
+answered just now. A link, not an integration: this reports reachability and
+nothing else, and invents nothing about what a service would have said.
+
+**Response:**
+```json
+{
+  "neighbours": [
+    {
+      "name": "dossier",
+      "url": "http://127.0.0.1:1618",
+      "what": "carries a delta through brainstorm to complete",
+      "reachable": false,
+      "reason": "Nobody answered at http://127.0.0.1:1618: ConnectError.",
+      "fix": "Start it with `uv run dossier serve` in the dossier clone."
+    },
+    {
+      "name": "codecarto",
+      "url": "http://127.0.0.1:2718",
+      "what": "maps source code as graphs; the other half of the border",
+      "reachable": true,
+      "status": 200
+    }
+  ]
+}
+```
+
+`reason` and `fix` are present only when `reachable` is `false`; `status` only
+when it is `true`.
+
+[qmcp]: https://github.com/quaternionmedia/qmcp
