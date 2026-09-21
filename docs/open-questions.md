@@ -63,6 +63,15 @@ took the first 300 and emitted 18 lines of conversation.
   thread's evolution. On a 200-message conversation that is a wall of numbers.
 - **`dossier` and `codecarto` are links, not integrations.** The panel reports
   whether each is answering and invents nothing about what it would have said.
+  Half of that changed on 2026-09-20, in the other direction: codecarto's
+  Estate table now reads this project's `/health` as its prose seam, and
+  `GET /api/harness/threads/{source}/{thread_id}/topics` exists for a window
+  to draw. The panel that draws it is codecarto's to build -- the corpus's
+  `plans/the-web-window.md`, the cartography-and-chrestomathy phase, picked up
+  from `handbook/handoffs/the-web-window.md`. What that phase may ask of this
+  project, and has not yet: a route from a file or a symbol to the threads
+  that spoke of it. It is noted here so it is built when asked for, against
+  the panel that needs it, and not before.
 
 ## Closed since this page was written
 
