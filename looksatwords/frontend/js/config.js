@@ -6,9 +6,10 @@
 export const CONFIG = {
     // API Configuration
     api: {
-        base: window.location.origin.includes('localhost') 
-            ? 'http://localhost:8000'
-            : window.location.origin,
+        // The origin this page was served from, whatever host and port that
+        // is. A hard-coded port here was a second copy of `serve`'s default,
+        // and the page kept calling it after the default moved.
+        base: window.location.origin,
         get endpoint() {
             return `${this.base}/api`;
         }

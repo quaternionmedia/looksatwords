@@ -16,6 +16,34 @@ from .visualizer import Visualizer
 
 orchestrator = Orchestrator()
 
+# WHERE THIS READER ANSWERS: ROOT TWO. The workstation's services each take a
+# constant somebody can recall without looking, and the allocation is made in
+# one place -- the SURFACES table in `ci/dashboard.py` of the governance
+# corpus, which names each server, its repository and its port so that no two
+# of them collide. **THIS IS A SECOND COPY OF THAT ALLOCATION.** The two
+# repositories do not import each other, so the number is copied, and
+# `looksatwords/tests/test_port.py` reads the sibling clone's table when one is
+# beside this checkout and fails when the two disagree. It is not 8000: half
+# the Python world binds that by default, and a front end in this org spent a
+# week reading the wrong program on it. Mutated on 2026-09-20 by setting this
+# to 8000: the test reported the corpus allocates 1414 and this binds 8000,
+# then passed again on restore.
+DEFAULT_PORT = 1414
+
+
+def default_port() -> int:
+    """The port `serve` binds when none is given: LOOKSATWORDS_PORT, else the allocation.
+
+    Resolved when the command runs and not when this module is imported, so a
+    shell that sets the variable after the interpreter started still gets its
+    way -- click calls this at parse time, which is why the option's default is
+    the function and not its value.
+    """
+    return int(os.environ.get("LOOKSATWORDS_PORT", DEFAULT_PORT))
+
+
+PORT_HELP = f"Port to bind to (default {DEFAULT_PORT}, or LOOKSATWORDS_PORT)"
+
 
 @click.group()
 def cli():
@@ -326,18 +354,22 @@ def _run_server(host, port, reload, open_browser):
 
 @cli.command()
 @click.option("--host", default="127.0.0.1", help="Host to bind to")
-@click.option("--port", "-p", default=8000, help="Port to bind to")
+@click.option("--port", "-p", default=default_port, type=int, help=PORT_HELP)
 @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
 @click.option("--no-open", is_flag=True, help="Don't open browser automatically")
 def serve(host, port, reload, no_open):
     """Start the application server (API + frontend).
-    
+
+    \b
     Examples:
-        looksatwords serve                   # Serve on localhost:8000
-        looksatwords serve -p 8080          # Serve on port 8080
+        looksatwords serve                   # Serve on 127.0.0.1, this reader's port
+        looksatwords serve -p 8080           # Serve on port 8080
         looksatwords serve --reload          # With auto-reload for development
         looksatwords serve --host 0.0.0.0    # Listen on all interfaces
         looksatwords serve --no-open         # Don't open browser
+
+    The default port is the org's allocation for this reader, and
+    LOOKSATWORDS_PORT overrides it without a flag; `--help` prints the number.
     """
     _run_server(host, port, reload, open_browser=not no_open)
 
@@ -345,7 +377,7 @@ def serve(host, port, reload, no_open):
 # Alias for backward compatibility
 @cli.command("run-server", hidden=True)
 @click.option("--host", default="127.0.0.1", help="Host to bind to")
-@click.option("--port", "-p", default=8000, help="Port to bind to")
+@click.option("--port", "-p", default=default_port, type=int, help=PORT_HELP)
 @click.option("--reload", is_flag=True, help="Enable auto-reload for development")
 def run_server(host, port, reload):
     """Run the FastAPI backend server (deprecated, use 'serve' instead)."""

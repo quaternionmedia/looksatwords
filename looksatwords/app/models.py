@@ -25,6 +25,13 @@ class Conversation(ConversationBase, table=True):
     speakers: dict = Field(default_factory=dict, sa_column=Column(JSON))
     threads: List[dict] = Field(default_factory=list, sa_column=Column(JSON))
     tangents: List[dict] = Field(default_factory=list, sa_column=Column(JSON))
+    # WHICH ARCHIVED THREAD THIS WAS READ FROM, WHEN IT WAS ONE. Both None for
+    # a conversation typed, generated or gathered. Together they are the address
+    # the harness topics route looks a reading up by; the `[harness]` prefix on
+    # the title is for a person and is not an address, since two threads may
+    # share a title and an untitled one is named after its id.
+    harness_source: Optional[str] = Field(default=None)
+    harness_thread_id: Optional[str] = Field(default=None)
 
 
 class ConversationCreate(SQLModel):

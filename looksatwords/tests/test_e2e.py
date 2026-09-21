@@ -4,16 +4,21 @@ These tests validate browser-based functionality and require:
 1. Playwright browsers installed: `uv run playwright install chromium`
 2. The server running: `uv run looksatwords serve --no-open`
 
-The server serves both the API and frontend on port 8000.
+The server serves both the API and frontend on the port `serve` binds by
+default, which `looksatwords.__main__.default_port` resolves -- the org's
+allocation, or LOOKSATWORDS_PORT. Set the same variable for this run to point
+these at a server on another port.
 """
 import pytest
 import requests
+
+from looksatwords.__main__ import default_port
 
 # Mark all tests in this file as e2e tests
 pytestmark = pytest.mark.e2e
 
 # Default server URLs
-DEFAULT_SERVER_URL = "http://localhost:8000"
+DEFAULT_SERVER_URL = f"http://127.0.0.1:{default_port()}"
 HEALTH_ENDPOINT = f"{DEFAULT_SERVER_URL}/health"
 
 

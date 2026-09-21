@@ -12,7 +12,7 @@ uv sync
 
 # Run
 uv run looksatwords serve
-# → http://localhost:8000
+# → http://127.0.0.1:1414  (LOOKSATWORDS_PORT moves it; `serve --help` prints it)
 ```
 
 ## 📚 Documentation
@@ -40,8 +40,9 @@ uv run looksatwords serve
 | `POST` | `/api/generate-conversation` | Generate with LLM |
 | `GET` | `/api/database/export` | Export database |
 | `POST` | `/api/database/import` | Import database |
+| `GET` | `/api/harness/*` | The thread archive, read over loopback -- see [docs/api.md](docs/api.md#harness) |
 
-**Interactive Docs:** http://localhost:8000/docs
+**Interactive Docs:** http://127.0.0.1:1414/docs
 
 ## 🧪 Testing
 
@@ -58,7 +59,7 @@ uv run pytest looksatwords/tests/test_e2e.py -v
 
 ```
 Browser → FastAPI Server → SQLite Database
-           Port 8000       looksatwords.db
+           Port 1414       looksatwords.db
 ```
 
 ## 🛠️ Commands

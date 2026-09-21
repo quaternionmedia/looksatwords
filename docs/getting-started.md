@@ -32,7 +32,7 @@ uv run looksatwords serve
 ```
 
 This will:
-1. Start the API server on http://localhost:8000
+1. Start the API server on http://127.0.0.1:1414 -- the org's allocation for this reader; `LOOKSATWORDS_PORT` moves it
 2. Open your browser automatically
 3. Serve the frontend visualization interface
 
@@ -57,7 +57,7 @@ This will:
 
 ### Explore the API
 
-Visit http://localhost:8000/docs for interactive API documentation.
+Visit http://127.0.0.1:1414/docs for interactive API documentation.
 
 ## Database Setup (Optional)
 

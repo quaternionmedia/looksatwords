@@ -294,7 +294,13 @@ def analyze_conversation_with_analytics(
     return _analyze_and_store(request.text, request.title, session)
 
 
-def _analyze_and_store(text: str, title: Optional[str], session: Session):
+def _analyze_and_store(
+    text: str,
+    title: Optional[str],
+    session: Session,
+    harness_source: Optional[str] = None,
+    harness_thread_id: Optional[str] = None,
+):
     """Parse, analyse and store one conversation, whatever produced its text.
 
     ONE PATH, TWO CALLERS. A person pasting into the box and the harness route
@@ -303,6 +309,10 @@ def _analyze_and_store(text: str, title: Optional[str], session: Session):
     in the same dashboard list as one typed by hand. A second copy of this would
     drift, and the drift would be invisible: both would still return a
     conversation.
+
+    The harness caller passes the thread's address, and it is stored on the row
+    so the topics route can find this reading again. The other caller has no
+    address to give.
     """
     visualizer = ThreadVisualizerBackend(use_nltk=False)
     time_points = visualizer.parseConversation(text)
@@ -344,7 +354,9 @@ def _analyze_and_store(text: str, title: Optional[str], session: Session):
         total_duration=visualizer.totalDuration,
         speakers=visualizer.speakers,
         threads=threads_data,
-        tangents=tangents_data
+        tangents=tangents_data,
+        harness_source=harness_source,
+        harness_thread_id=harness_thread_id,
     )
 
     session.add(conversation)
@@ -1294,7 +1306,10 @@ def harness_analyze_thread(
         )
 
     title = t.title or f"{source}/{thread_id[:8]}"
-    result = _analyze_and_store(text, f"[harness] {title}", session)
+    result = _analyze_and_store(
+        text, f"[harness] {title}", session,
+        harness_source=source, harness_thread_id=thread_id,
+    )
     return HarnessIngestOut(**result.model_dump(), conversion=report, text=text)
 
 
@@ -1321,6 +1336,156 @@ def harness_thread_deltas(source: str, thread_id: str):
             ),
         )
     return d
+
+
+class HarnessThreadRef(BaseModel):
+    """The thread as the archive knows it, or why nobody could ask.
+
+    `reachable` first, as everywhere on this seam. `indexed` is None when
+    nobody answered -- never False, which is the archive's own claim that it
+    has no such thread.
+    """
+    reachable: bool
+    base_url: str
+    reason: Optional[str] = None
+    fix: Optional[str] = None
+    indexed: Optional[bool] = None
+    title: Optional[str] = None
+    address: Optional[str] = None
+    turns: Optional[int] = None
+
+
+class TopicSpan(BaseModel):
+    """One run of mentions with a rest, or the end, on either side."""
+    start: float
+    end: float
+    mentions: int
+    speakers: List[str]
+
+
+class TopicLane(BaseModel):
+    """One topic as the picture draws it: a lane, its notes, and its rests."""
+    label: str
+    color: str
+    mentions: int
+    speakers: dict
+    carried_by: Optional[str] = None
+    spans: List[TopicSpan]
+    rests: int
+    dropped: bool
+    returned_to: bool
+
+
+class TangentOut(BaseModel):
+    """Where the conversation went off, and whether it came back."""
+    start: Optional[float] = None
+    end: Optional[float] = None
+    type: str
+    topics: List[str] = []
+    start_text: str = ""
+    resolution_text: Optional[str] = None
+
+
+class HarnessTopicsOut(BaseModel):
+    """The topics document for one archived thread.
+
+    Two answers, kept apart: `harness` is what the archive said about the
+    thread just now, and everything after `analysed` is this project's stored
+    reading of it. Either can be missing without the other, and the shape says
+    which. `analysed` False comes with the route that changes it.
+    """
+    source: str
+    thread_id: str
+    harness: HarnessThreadRef
+    analysed: bool
+    reason: Optional[str] = None
+    fix: Optional[str] = None
+    conversation_id: Optional[int] = None
+    title: Optional[str] = None
+    analysed_at: Optional[str] = None
+    total_duration: Optional[float] = None
+    beat: Optional[float] = None
+    rest_gap: Optional[float] = None
+    speakers: dict = {}
+    topics: List[TopicLane] = []
+    tangents: List[TangentOut] = []
+
+
+@app.get("/api/harness/threads/{source}/{thread_id}/topics",
+         response_model=HarnessTopicsOut)
+def harness_thread_topics(
+    source: str,
+    thread_id: str,
+    session: Session = Depends(get_session),
+):
+    """This project's reading of one archived thread, shaped for a graph to draw.
+
+    A GET THAT DOES NOT WRITE. The reading is looked up by the address the
+    analyse route stored, and the newest one wins when a thread was analysed
+    more than once. A thread with no reading here is answered 200 with
+    `analysed` False and the route that would produce one, because analysing
+    on a GET would store a row nobody asked for. A reading stored before the
+    address was recorded on the row is not found either, and the remedy is the
+    same call. `looksatwords/app/topics_document.py` carries the shaping.
+    """
+    from looksatwords import harness
+    from . import topics_document
+
+    a = harness.index()
+    if not a.reachable:
+        ref = HarnessThreadRef(
+            reachable=False, base_url=harness.base_url(), reason=a.reason, fix=a.fix,
+        )
+    else:
+        row = next(
+            (x for x in a.threads
+             if x.get("source") == source and x.get("id") == thread_id),
+            None,
+        )
+        ref = HarnessThreadRef(
+            reachable=True,
+            base_url=harness.base_url(),
+            indexed=row is not None,
+            title=row.get("title") if row else None,
+            address=row.get("address") if row else None,
+            turns=row.get("turns") if row else None,
+        )
+
+    conversation = session.exec(
+        select(Conversation)
+        .where(Conversation.harness_source == source)
+        .where(Conversation.harness_thread_id == thread_id)
+        .order_by(Conversation.id.desc())
+    ).first()
+
+    if conversation is None:
+        return HarnessTopicsOut(
+            source=source,
+            thread_id=thread_id,
+            harness=ref,
+            analysed=False,
+            reason=f"{source}/{thread_id} has not been analysed here.",
+            fix=(
+                f"POST /api/harness/threads/{source}/{thread_id}/analyze reads it "
+                "off the archive and stores the reading; then ask again."
+            ),
+        )
+
+    doc = topics_document.document(
+        conversation.threads or [], conversation.tangents or [],
+        conversation.total_duration,
+    )
+    return HarnessTopicsOut(
+        source=source,
+        thread_id=thread_id,
+        harness=ref,
+        analysed=True,
+        conversation_id=conversation.id,
+        title=conversation.title,
+        analysed_at=conversation.created_at.isoformat() if conversation.created_at else None,
+        speakers=conversation.speakers or {},
+        **doc,
+    )
 
 
 @app.get("/api/harness/neighbours")

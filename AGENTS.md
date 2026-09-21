@@ -176,8 +176,16 @@ that belongs there.
 
 ```sh
 uv sync
-uv run looksatwords serve --no-open      # http://127.0.0.1:8000, API docs at /docs
+uv run looksatwords serve --no-open      # http://127.0.0.1:1414, API docs at /docs
 ```
+
+**The port is the org's allocation for this reader, and `LOOKSATWORDS_PORT`
+moves it.** The corpus allocates one port per server on the workstation in the
+SURFACES table of its `ci/dashboard.py`, so that no two collide;
+`looksatwords/__main__.py` carries a copy and `looksatwords/tests/test_port.py`
+reads the sibling clone's table to keep the copy true. `uv run looksatwords
+serve --help` prints the number, and the front end calls whatever origin it was
+served from, so no page carries a second copy.
 
 Generation needs a local Ollama. **The host is not a setting and the model is.**
 `looksatwords/llm.py` holds both: `HOST` is loopback because a client that could
