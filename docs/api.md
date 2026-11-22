@@ -27,7 +27,7 @@ their positions.
 | POST | `/api/conversations/analyze` | Analyze conversation |
 | POST | `/api/conversations/analyze-with-analytics` | Analyze with full NLTK analytics |
 | GET | `/api/conversations` | List conversations |
-| GET | `/api/conversations/{id}` | Get conversation |
+| GET | `/api/conversations/{id}` | Get conversation; the page opens one at `/?conversation={id}`, as it was analysed, without analysing it again |
 | GET | `/api/conversations/{id}/analytics` | Get conversation analytics |
 | GET | `/api/conversations/{id}/visualizations` | Get all chart visualizations |
 | DELETE | `/api/conversations/{id}` | Delete conversation |
