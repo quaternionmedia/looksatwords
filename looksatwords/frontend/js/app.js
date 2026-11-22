@@ -76,6 +76,45 @@ export class ConversationVisualizerApp {
 
         this.initialized = true;
         console.log('Conversation Visualizer ready');
+
+        // A page opened at ?conversation=<id> shows that saved conversation,
+        // as another program's link to it opens it.
+        const asked = new URLSearchParams(window.location.search).get('conversation');
+        if (asked) {
+            await this.openConversation(asked);
+        }
+    }
+
+    /**
+     * Show a saved conversation as it was analysed, without analysing it again:
+     * the one rendering path, fed from the store.
+     * @param {number|string} conversationId - Conversation ID
+     */
+    async openConversation(conversationId) {
+        try {
+            UIFeedback.showLoading(true, 'Opening conversation...');
+            const conversation = await this.apiClient.getConversation(conversationId);
+            const inputEl = document.getElementById(this.options.inputId);
+            if (inputEl) {
+                inputEl.value = conversation.text;
+            }
+            this.data.clear();
+            this.applyAnalysisResponse({ ...conversation, conversation_id: conversation.id });
+            this.renderVisualization();
+            this.reporter.generateReport(
+                this.data.threads,
+                this.data.tangents,
+                this.data.speakers,
+                this.data.totalDuration
+            );
+            this.fetchAnalyticsForConversation(conversationId);
+            UIFeedback.showLoading(false);
+            UIFeedback.showMessage(`✓ Opened: ${conversation.title}`, 'success');
+        } catch (error) {
+            UIFeedback.showLoading(false);
+            console.error('Failed to open conversation:', error);
+            UIFeedback.showMessage(`Failed to open: ${error.message}`, 'error');
+        }
     }
 
     /**
