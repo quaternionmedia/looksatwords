@@ -1,6 +1,5 @@
 """Tests for the HUD module."""
 import json
-from pathlib import Path
 from looksatwords.hud import HUD, parse_json_to_tree
 from rich.tree import Tree
 

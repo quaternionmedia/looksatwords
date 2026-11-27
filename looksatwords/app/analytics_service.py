@@ -10,7 +10,7 @@ from collections import Counter
 from typing import Any, Dict, List, Optional
 
 from nltk.sentiment import SentimentIntensityAnalyzer
-from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk import pos_tag

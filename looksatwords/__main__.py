@@ -5,14 +5,10 @@ import sys
 from pathlib import Path
 
 import click
-from typing_extensions import Annotated
 
-from .analyzer import Analyzer
 from .gatherer import GnewsGatherer, GnewsQuery
-from .generator import GnewsGenerator
 from .logs import log
 from .orchestrator import Orchestrator
-from .visualizer import Visualizer
 
 orchestrator = Orchestrator()
 

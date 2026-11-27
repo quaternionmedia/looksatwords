@@ -1,5 +1,4 @@
 """Tests for FastAPI backend integration."""
-import json
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, create_engine

@@ -3,7 +3,7 @@
 from datetime import datetime, UTC
 from typing import List, Optional
 
-from sqlmodel import Field, SQLModel, JSON, Column, Relationship
+from sqlmodel import Field, SQLModel, JSON, Column
 
 
 def _utc_now() -> datetime:

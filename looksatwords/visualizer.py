@@ -6,7 +6,6 @@ from bokeh.io import output_file, save
 from bokeh.models import ColumnDataSource, HoverTool, LinearColorMapper, Whisker
 from bokeh.plotting import figure
 from bokeh.transform import cumsum
-from nltk import pos_tag
 from numpy import array, pi
 from PIL import Image
 from wordcloud import WordCloud, get_single_color_func
@@ -148,7 +147,6 @@ color_to_pos = {
 
 import numpy as np
 import requests
-from PIL import Image
 
 
 def download_image(url):
@@ -161,7 +159,6 @@ def calculate_image_mask(file=None):
     if file is None:
         return None
     if file.startswith("http"):
-        filename = file.split("/")[-1]
         mask = download_image(file)
     else:
         mask = array(Image.open(file))

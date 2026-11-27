@@ -61,7 +61,7 @@ class NewsService:
         try:
             import ollama
 
-            from looksatwords.llm import HOST, MODEL
+            from looksatwords.llm import HOST
 
             client = ollama.Client(host=HOST)
             client.list()  # Test connection

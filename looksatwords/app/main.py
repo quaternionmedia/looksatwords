@@ -1,12 +1,11 @@
 """FastAPI application for conversation thread visualization."""
 
-import json
 from contextlib import asynccontextmanager
 from datetime import datetime, UTC
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, UploadFile, File
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,8 +21,6 @@ from .models import (
     ConversationWithAnalyticsResponse,
     AnalyticsResponse,
     AggregatedAnalytics,
-    SentimentScore,
-    WordFrequencyItem,
     SentimentTimelinePoint,
     ExtractedTopic,
     TopicsResponse,

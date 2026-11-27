@@ -225,7 +225,7 @@ def test_sample_conversation_load(server_url, browser_context):
         page.wait_for_load_state("networkidle", timeout=5000)
         
         # Textarea should initially be empty or have placeholder
-        initial_value = page.input_value("#textInput")
+        page.input_value("#textInput")
         
         # Click load sample button
         page.click("button:has-text('Sample')")

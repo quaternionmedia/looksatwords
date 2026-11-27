@@ -10,7 +10,7 @@ Provides corpus-level analysis including:
 from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional
 
-from .analytics_service import get_analytics_service, ConversationAnalyticsService
+from .analytics_service import get_analytics_service
 from .topic_service import get_topic_extractor
 
 

@@ -1,7 +1,5 @@
 from tinydb import TinyDB
 from pandas import DataFrame
-from os import path, makedirs
-from rich import print
 
 from .hud import hud
 
@@ -66,7 +64,7 @@ class DataIO:
     def __init__(self, db_path="data.json", table_name="io"):
         self.df = DataFrame()
         self.db_path = db_path
-        with open(db_path, "a") as f:
+        with open(db_path, "a"):
             pass
         self.db = TinyDB(self.db_path)
         self.table_name = table_name

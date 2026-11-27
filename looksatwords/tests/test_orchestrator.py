@@ -6,8 +6,8 @@ from looksatwords.generator import GnewsGenerator
 def test_orchestrator():
     g1 = GnewsGatherer()
     g2 = GnewsGatherer()
-    f1 = GnewsGenerator()
-    f2 = GnewsGenerator()
+    GnewsGenerator()
+    GnewsGenerator()
     orchestrator = Orchestrator()
     orchestrator.add_gatherers([g1, g2])
     orchestrator.gather()

@@ -13,7 +13,6 @@ from rich.progress import (
 from rich.spinner import Spinner
 from rich.panel import Panel
 from rich.text import Text
-from rich.console import Console
 from rich.tree import Tree
 
 from functools import wraps
@@ -174,7 +173,7 @@ def hud(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        with get_hud().live as hud:
+        with get_hud().live:
             return func(*args, hud=get_hud().progress, **kwargs)
 
     return wrapper

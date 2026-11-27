@@ -3,7 +3,6 @@
 import io
 import base64
 from typing import List, Optional, Dict, Any
-from datetime import datetime
 from collections import Counter
 
 from pydantic import BaseModel
@@ -176,7 +175,7 @@ class VisualizationService:
         ax.set_facecolor('#1a1a2e')
         
         colors = plt.cm.viridis([i/len(words) for i in range(len(words))])
-        bars = ax.barh(words, counts, color=colors)
+        ax.barh(words, counts, color=colors)
         
         ax.set_xlabel('Count', color='white')
         ax.set_title(title, color='white', fontsize=14)
@@ -219,7 +218,6 @@ class VisualizationService:
             )
         
         import matplotlib.pyplot as plt
-        import numpy as np
         
         times = [d['time'] for d in sentiment_data]
         compounds = [d['compound'] for d in sentiment_data]
@@ -376,8 +374,8 @@ class VisualizationService:
         fig.patch.set_facecolor('#1a1a2e')
         ax1.set_facecolor('#1a1a2e')
         
-        bars1 = ax1.bar(x - width, messages, width, label='Messages', color='#00d4ff', alpha=0.8)
-        bars2 = ax1.bar(x, [w/10 for w in words], width, label='Words (÷10)', color='#00ff88', alpha=0.8)
+        ax1.bar(x - width, messages, width, label='Messages', color='#00d4ff', alpha=0.8)
+        ax1.bar(x, [w/10 for w in words], width, label='Words (÷10)', color='#00ff88', alpha=0.8)
         
         ax1.set_xlabel('Speaker', color='white')
         ax1.set_ylabel('Count', color='white')
